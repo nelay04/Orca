@@ -1,4 +1,4 @@
- * App Name:          Orca(orca2echo)
+ * App Name:          Orca (orca2echo)
  * Description:       This a web based chat app
  * Version:           1.0.0
  * Framework:         Django
