@@ -3,6 +3,8 @@
 import os
 import sys
 
+# Prevent the creation of .pyc files and __pycache__ directories
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 
 def main():
     """Run administrative tasks."""
