@@ -1,0 +1,26 @@
+/* Mobile view */
+@media (max-width: 768px) {
+  body {
+    background: rgb(187, 183, 238);
+    background: linear-gradient(90deg, rgba(187, 183, 238, 1) 0%, rgba(119, 108, 204, 1) 100%);
+  }
+}
+
+/* Desktop view (you can disable certain elements here if needed) */
+@media (min-width: 769px) {
+  body {
+    background: rgb(255, 255, 255);
+    /* different background for desktop */
+  }
+}
+
+body {
+  opacity: 0.8;
+  margin: 0;
+  padding: 0;
+  background: rgb(187, 183, 238);
+  background: linear-gradient(90deg, rgba(187, 183, 238, 1) 0%, rgba(119, 108, 204, 1) 100%);
+  min-height: 87.25vh;
+  font-family: 'Roboto', sans-serif;
+  /* overflow: hidden; */
+}

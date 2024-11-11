@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}
+  signin | Orca
+{% endblock %}
+
+{% block css %}
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'style/signin.css' %}" />
+{% endblock %}
+
+{% block body %}
+  <div class="container">
+    <div class="logo_section">
+      <h1>Orca</h1>
+      <h2>Speak your mind, Let it echo</h2>
+    </div>
+    <div class="form_section">
+      <div class="form_container">
+        <h1 class="form_header">Sign In</h1>
+        <form method="POST">
+          {% csrf_token %}
+          <div class="form_group">
+            <label for="email">Enter your email</label>
+            <input type="email" id="email" name="email" required />
+            <span class="icon"><i class="fa-solid fa-envelope"></i></span>
+          </div>
+          <div class="form_group">
+            <br />
+            <button type="submit" class="submit_button">Next</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block js %}
+  <script src="{% static 'js/signin.js' %}"></script>
+{% endblock %}
