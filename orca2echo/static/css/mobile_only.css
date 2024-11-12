@@ -1,0 +1,17 @@
+body {
+    opacity: 0.8;
+    margin: 0;
+    padding: 0;
+    background: rgb(187, 183, 238);
+    background: linear-gradient(90deg, rgba(187, 183, 238, 1) 0%, rgba(119, 108, 204, 1) 100%);
+    /* min-height: 87.25vh; */
+    font-family: 'Roboto', sans-serif;
+    /* overflow: hidden; */
+  }
+
+
+  .container{
+    padding: 2.5% 2.5%;
+    font-weight: lighter;
+    font-size: 1.25rem;
+  }

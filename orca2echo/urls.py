@@ -2,8 +2,9 @@ from django.urls import path
 from orca2echo import views
 
 urlpatterns = [
-    path("", views.index, name="orca2echo"),     # route to index function of views.py home
-    
+    path("", views.index, name="orca"),     # route to index function of views.py home
+    path('mobile-only/', views.mobile_only, name='mobile_only'),
+    path("signin", views.signin, name="signin"),
     
     
     # path("about", views.about, name="about"),
@@ -15,7 +16,6 @@ urlpatterns = [
     # path("preference", views.preference, name="preference"),
     # path("test", views.test, name="test"),
     # path("register", views.register, name="register"),
-    # path("signin", views.signin, name="signin"),
     # path("signout", views.signout, name="signout"),
     # path("history", views.history, name="history"),
     # path("go_to_history", views.go_to_history, name="go_to_history"),

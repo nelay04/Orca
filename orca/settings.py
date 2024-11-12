@@ -138,3 +138,31 @@ STATICFILES_DIRS = [
 
 # Only needed if you plan to collect static files during deployment
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'coffeecold97@gmail.com'
+# EMAIL_HOST_PASSWORD = '***REMOVED***' # manage account -> secuirity -> app password
+EMAIL_HOST_PASSWORD = '***REMOVED***' # manage account -> secuirity -> app password
+
+
+
+# settings.py
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'djongo',
+#         'NAME': 'orca2echo',  # Name of your MongoDB database
+#         'ENFORCE_SCHEMA': True,  # Set to False to allow schema-less collections
+#         'CLIENT': {
+#             'host': 'mongodb+srv:***REMOVED***',  # MongoDB connection string
+#             # 'username': 'your_username',  # Optional if using authentication
+#             # 'password': 'your_password',  # Optional if using authentication
+#             # 'authSource': 'admin',  # Optional if using authentication
+#         },
+#     }
+# }
