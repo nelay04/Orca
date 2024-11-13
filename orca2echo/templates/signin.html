@@ -6,6 +6,7 @@
 {% block css %}
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/signin.css' %}" />
+  
 {% endblock %}
 
 {% block body %}
@@ -17,7 +18,7 @@
     <div class="form_section">
       <div class="form_container">
         <h1 class="form_header">Sign In</h1>
-        <form method="POST" action="/signin">
+        <form method="POST" action="/signin" id="signin-form">
           {% csrf_token %}
           <div class="form_group">
             <label for="email">Enter your email</label>
@@ -26,11 +27,16 @@
           </div>
           <div class="form_group">
             <br />
-            <button type="submit" class="submit_button">Next</button>
+            <button type="submit" class="submit_button" id="submit-button">Next</button>
           </div>
         </form>
       </div>
     </div>
+  </div>
+
+  <!-- Full-screen overlay with loader -->
+  <div class="overlay" id="overlay">
+    <div class="loader"></div>
   </div>
 {% endblock %}
 

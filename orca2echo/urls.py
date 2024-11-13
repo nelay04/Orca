@@ -5,7 +5,9 @@ urlpatterns = [
     path("", views.index, name="orca"),     # route to index function of views.py home
     path('mobile-only/', views.mobile_only, name='mobile_only'),
     path("signin", views.signin, name="signin"),
-    
+    path("verify_otp", views.verify_otp, name="verify_otp"),
+    # path('resend_otp', views.resend_otp, name='resend_otp'),
+    # path('home', views.home, name='home'),
     
     # path("about", views.about, name="about"),
     # path("recommendation", views.recommendation, name="recommendation"),

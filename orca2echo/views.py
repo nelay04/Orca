@@ -3,9 +3,10 @@ from django.shortcuts import render, HttpResponse, redirect
 import requests
 from django.core.mail import send_mail
 from .services.auth_service import generate_otp,send_otp
-from .models import  USER
-
-
+from .models import  User
+import time    
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 # Create your views here.
 def index(request):
     return render(request, "signin.html", {"auth_user": request.user})
@@ -18,51 +19,64 @@ def mobile_only(request):
 
 
 
-from django.shortcuts import render
-from user_agents import parse
-import requests
-
 def signin(request):
     if request.method == "POST":
-        # Server-side: Fetch user IP address
-        ip_address = request.META.get('REMOTE_ADDR')  # Note: Behind a proxy/load balancer, consider 'HTTP_X_FORWARDED_FOR'
+        email = request.POST.get("email")
 
-        # Get approximate location from IP address using a public API (e.g., ipinfo.io)
+        # Validate the email format using Django's EmailValidator
         try:
-            response = requests.get(f'https://ipinfo.io/{ip_address}/json')
-            location_data = response.json()
-            ip_location = {
-                'ip': location_data.get('ip', 'N/A'),
-                'city': location_data.get('city', 'N/A'),
-                'region': location_data.get('region', 'N/A'),
-                'country': location_data.get('country', 'N/A'),
-                'loc': location_data.get('loc', 'N/A'),
-            }
+            validate_email(email)
+        except ValidationError:
+            return render(request, "signin.html", {
+                "error": "Please enter a valid email address."  # Error message to show in the template
+            })
+
+        # Generate and print OTP for debugging (remove this in production)
+        otp = generate_otp()
+        print(otp)
+
+        # Send OTP to email
+        send_otp(otp, email)
+
+        try:
+            # Check if user exists
+            if_user = User.get_user_by_email(email)
+            if if_user is not None:
+                # Update user's OTP if user already exists
+                result = User.update_field(email, "otp", otp)
+            else:
+                # Add a new user if not found
+                new_user = User(email=email, otp=otp)
+                result = new_user.save()
         except Exception as e:
-            ip_location = {'error': f'Could not fetch IP location - {str(e)}'}
+            # Print error message for debugging
+            print(f"An error occurred: {e}")
+            return render(request, "signin.html", {"error": "An unexpected error occurred."})
 
-        # Device information
-        user_agent_string = request.META.get('HTTP_USER_AGENT', 'unknown')
-        user_agent = parse(user_agent_string)
-        device_info = {
-            'is_mobile': user_agent.is_mobile,
-            'is_tablet': user_agent.is_tablet,
-            'is_touch_capable': user_agent.is_touch_capable,
-            'browser': user_agent.browser.family,
-            'browser_version': user_agent.browser.version_string,
-            'os': user_agent.os.family,
-            'os_version': user_agent.os.version_string,
-            'device': user_agent.device.family,
-        }
+        # Save OTP and ID in session
+        request.session['otp'] = otp
+        request.session['id'] = str(result)  # Assuming `result` is the user's ID or a unique identifier
 
-        print("IP Location Data:", ip_location)
-        print("Device Information:", device_info)
+        # Redirect to OTP page or render the OTP template
+        return render(request, "otp.html", {"otp": otp, "id": result})
+    else:
+        return render(request, "signin.html")
+    
 
-        # Render or return data to be used by the client-side script
-        context = {
-            'ip_location': ip_location,
-            'device_info': device_info,
-        }
-        return render(request, 'signin.html', context)
+def verify_otp(request):
+    if request.method == 'POST':
+        entered_otp = request.POST.get('otp')  # Retrieve the concatenated OTP value from the hidden input
+        print(entered_otp)
+        # Retrieve data from session
+        original_otp = request.session.get('otp')
+        user_id = request.session.get('id')
 
-    return render(request, 'signin.html')
+        # Validate OTP
+        if entered_otp == original_otp:
+            # Proceed with verification
+            # Optionally, clear sensitive session data
+            del request.session['otp']
+            del request.session['id']
+            return HttpResponse("OTP verified successfully.")
+        else:
+            return HttpResponse("Invalid OTP.")

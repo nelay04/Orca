@@ -62,7 +62,6 @@
   padding-left: 10%;
   padding-top: 1%;
   position: relative;
-  /* Ensure the icon can be positioned inside the form group */
 }
 
 .form_group label {
@@ -76,7 +75,6 @@
   margin-top: 1vh;
   width: 78vw;
   background-color: transparent;
-  /* Or your preferred background color */
   border-radius: 2px;
   height: 5vh;
   border: none;
@@ -120,11 +118,51 @@
   font-weight: 500;
   color: white;
   background-color: rgba(200, 197, 245, 0.5);
+  display: block;
+  margin: 0 10%;
 }
 
-.submit_button {
-  display: block;
-  /* Makes the button act like a block-level element */
-  margin: 0 10%;
-  /* Centers the button horizontally */
+.submit_button:active {
+  background-color: rgba(129, 121, 250, 1);
+} 
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 9999;
+  display: none;
+  justify-content: center;
+  align-items: center;
 }
+
+
+.loader {
+  width: 50px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 8px solid #0000;
+  border-right-color: #a59de6;
+  position: relative;
+  animation: l24 1s infinite linear;
+}
+.loader:before,
+.loader:after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: inherit;
+  animation: inherit;
+  animation-duration: 2s;
+}
+.loader:after {
+  animation-duration: 4s;
+}
+@keyframes l24 {
+  100% {transform: rotate(1turn)}
+}
+

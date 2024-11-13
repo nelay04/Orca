@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}
+  OTP Verification | Orca
+{% endblock %}
+
+{% block css %}
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/otp.css' %}" />
+{% endblock %}
+
+{% block body %}
+  <div class="container">
+    <div class="logo_section">
+      <h1>Orca</h1>
+      <h2>Speak your mind, Let it echo</h2>
+    </div>
+    <div class="form_section">
+      <div class="form_container">
+        <h1 class="form_header">Authentication</h1>
+        <form method="POST" action="/verify_otp" id="signin-form">
+          {% csrf_token %}
+          <div class="form_group">
+            <label for="otp">Enter OTP</label>
+            <div class="otp_input_container">
+              <!-- 6 input boxes for the OTP -->
+              {% for i in "123456" %}
+                <input type="text" class="otp_input" maxlength="1" pattern="[0-9]*" inputmode="numeric" required />
+              {% endfor %}
+              <!-- Hidden input to hold the combined OTP value -->
+              <input type="hidden" id="otp" name="otp" />
+              <span class="icon"><i class="fa-solid fa-key"></i></span>
+            </div>
+          </div>
+          <div class="form_group">
+            <br />
+            <button type="submit" class="submit_button" id="submit-button">Verify</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-screen overlay with loader -->
+  <div class="overlay" id="overlay">
+    <div class="loader"></div>
+  </div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/otp.js' %}"></script>
+<script>
+// Handling OTP input fields
+const otpInputs = document.querySelectorAll('.otp_input');
+const otpHiddenInput = document.getElementById('otp');
+
+otpInputs.forEach((input, index) => {
+    input.addEventListener('input', () => {
+        if (input.value.length === 1 && index < otpInputs.length - 1) {
+            otpInputs[index + 1].focus();
+        }
+        // Collect values and assign to hidden input
+        otpHiddenInput.value = Array.from(otpInputs).map(input => input.value).join('');
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === "Backspace" && index > 0 && input.value === "") {
+            otpInputs[index - 1].focus();
+        }
+    });
+});
+
+// Form submission with overlay and disabled button
+document.getElementById('signin-form').addEventListener('submit', function (event) {
+  // Prevent multiple form submissions
+  var submitButton = document.getElementById('submit-button');
+  var overlay = document.getElementById('overlay');
+
+  // Disable the button and show overlay
+  submitButton.disabled = true;
+  submitButton.classList.add('button-disabled');
+  overlay.style.display = 'flex';  // Show overlay
+
+  // Optional: If you need to prevent double submission
+  event.preventDefault();  // Prevent default form submission
+
+  // Submit the form manually after a delay to simulate an async process (for demonstration)
+  setTimeout(function () {
+    document.getElementById('signin-form').submit();  // Submit the form after a short delay
+  }, 500);  // Adjust the delay time if necessary
+});
+</script>
+{% endblock %}
