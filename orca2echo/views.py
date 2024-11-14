@@ -43,6 +43,9 @@ def mobile_only(request):
 
 
 def signin(request):
+    if request.user.is_authenticated:
+        # Redirect to a different page (e.g., home or dashboard)
+        return redirect('orca') 
     if request.method == "POST":
         email = request.POST.get("email")
 
@@ -105,6 +108,9 @@ def signin(request):
 
 
 def verify_otp(request):
+    if request.user.is_authenticated:
+        # Redirect to a different page (e.g., home or dashboard)
+        return redirect('orca') 
     if request.method == "POST":
         entered_otp = request.POST.get("otp")  # Get OTP entered by the user
         email = request.session.get("email")  # Retrieve the user ID from session
