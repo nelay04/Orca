@@ -6,7 +6,6 @@
 {% block css %}
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/signin.css' %}" />
-  
 {% endblock %}
 
 {% block body %}
@@ -25,6 +24,9 @@
             <input type="email" id="email" name="email" required />
             <span class="icon"><i class="fa-solid fa-envelope"></i></span>
           </div>
+          {% if error %}
+            <p class="error">{{ error }}</p>
+          {% endif %}
           <div class="form_group">
             <br />
             <button type="submit" class="submit_button" id="submit-button">Next</button>

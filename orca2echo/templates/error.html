@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {% if error_code %}
+      <title>{{ error_code }} Error</title>
+    {% endif %}
+
     <title>403 Error</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet" />
     {% load static %}
@@ -10,8 +14,12 @@
   </head>
   <body>
     <div class="container">
-      <h1>Error 403 - Forbidden</h1>
-      <h2>This website is only available on mobile devices.</h2>
+      {% if error_header %}
+        <h1>{{ error_header }}</h1>
+      {% endif %}
+      {% if error_body %}
+        <h2>{{ error_body }}</h2>
+      {% endif %}
     </div>
     <script src="{% static 'js/mobile_only.js' %}"></script>
   </body>

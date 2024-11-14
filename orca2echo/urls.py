@@ -6,6 +6,10 @@ urlpatterns = [
     path('mobile-only/', views.mobile_only, name='mobile_only'),
     path("signin", views.signin, name="signin"),
     path("verify_otp", views.verify_otp, name="verify_otp"),
+    
+    path('logout/', views.user_logout, name='logout'),
+    # Add other URLs like signin, index, etc.
+
     # path('resend_otp', views.resend_otp, name='resend_otp'),
     # path('home', views.home, name='home'),
     

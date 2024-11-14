@@ -105,3 +105,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'coffeecold97@gmail.com'
 EMAIL_HOST_PASSWORD = '***REMOVED***'  # Update with actual app password securely
+
+
+# In settings.py
+LOGIN_URL = 'signin'  # Custom login page

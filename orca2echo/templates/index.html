@@ -6,6 +6,16 @@
     <title>Document</title>
 </head>
 <body>
-    <h1>index<h1>
+    <h1>Welcome to the Index Page</h1>
+
+    <h2><strong>Username:</strong> {{ auth_user.username }}</h2>
+    <h2><strong>Email:</strong> {{ auth_user.email }}</h2>
+
+    <!-- Logout Form -->
+    <form method="POST" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit">Logout</button>
+    </form>
+
 </body>
 </html>
