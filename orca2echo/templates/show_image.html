@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Base64 Image</title>
+</head>
+<body>
+    <h1>Base64 Image Display</h1>
+    {% if base64_image == "File not found." %}
+        <p>{{ base64_image }}</p>
+    {% else %}
+        <!-- Display the base64-encoded image -->
+        <img src="data:image/jpeg;base64,{{ base64_image }}" alt="Base64 Image">
+    {% endif %}
+</body>
+</html>

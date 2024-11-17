@@ -1,3 +1,5 @@
+'''Service for user authentication -> sqlite'''
+
 import random
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -6,7 +8,7 @@ from datetime import datetime
 
 def generate_otp():
     # Generate a 6-digit random OTP between 000000 and 999999
-    otp = random.randint(0, 999999)
+    otp = random.randint(111111, 999999)
     return f"{otp:06d}"  # Formats the number to be 6 digits with leading zeros
 
 

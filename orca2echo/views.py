@@ -5,7 +5,7 @@ from .models import Otp
 import sys
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import authenticate, login, logout
-
+from .models import  UserData
 # from .models import  User
 from django.contrib.auth.models import User
 import time
@@ -83,6 +83,15 @@ def signin(request):
                 if_user.save()  # Save the updated user
                 add_otp(email, otp)
                 username = if_user.username
+
+                # Save OTP and ID in session
+                request.session["email"] = email
+                request.session["username"] = username
+
+                # Redirect to OTP page or render the OTP template
+                return render(request, "otp.html")
+
+
             else:
                 # Generate username for new user
                 username = generate_username(email)
@@ -93,16 +102,19 @@ def signin(request):
                 new_user.save()
                 add_otp(email, otp)
 
+                # Mongo user_data table
+                new_user_obj = UserData(email=email)
+                result = new_user_obj.save()
+
+                # Save OTP and ID in session
+                request.session["email"] = email
+                request.session["username"] = username
+
+                # Redirect to OTP page or render the OTP template
+                return render(request, "otp.html")
         except Exception as e:
             # Print error message for debugging
             return render(request, "signin.html", {"error": "An error occurred."})
-
-        # Save OTP and ID in session
-        request.session["email"] = email
-        request.session["username"] = username
-
-        # Redirect to OTP page or render the OTP template
-        return render(request, "otp.html")
     else:
         return render(request, "signin.html")
 
@@ -129,7 +141,18 @@ def verify_otp(request):
             # Example of deleting a specific session variable
             del request.session["email"]
             del request.session["username"]
-            return redirect("orca")  # Redirect to the home page
+            user = UserData.get_user_by_email(email)
+            
+            if user.get("is_new_user"):
+                # Redirect to OTP page or render the OTP template
+                return render(request, "signup.html")
+            else:
+                return redirect("orca")  # Redirect to the home page
+
+
+
+
+
         else:
             error_message = "Invalid OTP"
             return render(request, "otp.html", {"error_message": error_message})
@@ -150,3 +173,25 @@ def verify_otp(request):
 def user_logout(request):
     logout(request)  # This will log out the user
     return redirect("signin")  # Redirect to the signin page
+
+
+
+def show_base64_image(request):
+    # Path to the text file containing the base64 string
+    file_path = '.a.txt'  # Ensure the file is in the same folder as this view file
+    base64_string = ""
+
+    # Read the base64 string from the text file
+    try:
+        with open(file_path, "r") as text_file:
+            base64_string = text_file.read().strip()  # Read and remove any extra whitespace
+    except FileNotFoundError:
+        base64_string = "File not found."
+
+    # Pass the base64 string to the template
+    return render(request, 'show_image.html', {'base64_image': base64_string})
+
+
+def signup(request):
+    # Render the page and pass the user to the template
+    return render(request, "signup.html")

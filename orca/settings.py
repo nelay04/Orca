@@ -103,9 +103,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'coffeecold97@gmail.com'
-EMAIL_HOST_PASSWORD = '***REMOVED***'  # Update with actual app password securely
+# EMAIL_HOST_USER = 'coffeecold97@gmail.com'
+# EMAIL_HOST_PASSWORD = '***REMOVED***'  # Update with actual app password securely
 
+EMAIL_HOST_USER = 'snowflake.2k04@gmail.com'
+EMAIL_HOST_PASSWORD = '***REMOVED***'  # Gmail -> Manage your Google acc -> app passwords
 
 # In settings.py
 LOGIN_URL = 'signin'  # Custom login page
