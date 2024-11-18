@@ -1,7 +1,7 @@
 // Select necessary elements
-const inputField = document.getElementById('email');
+const inputField = document.getElementById('full_name');
 const icon = document.querySelector('.icon');
-const form = document.getElementById('signin-form');
+const form = document.getElementById('signup-form');
 const submitButton = document.getElementById('submit-button');
 const overlay = document.getElementById('overlay');
 

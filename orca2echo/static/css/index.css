@@ -1,0 +1,67 @@
+/* General Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Navbar Styles */
+.navbar {
+    position: sticky;
+    top: 0;
+    background-color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+}
+
+/* Left side of the navbar (Profile Image) */
+.navbar-left {
+    flex: 1;
+}
+
+.profile-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Center part (Search Input) */
+.navbar-center {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+}
+
+.search-input {
+    width: 0;
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    transition: width 0.3s ease-in-out; /* Smooth transition for expanding/collapsing */
+    opacity: 0;
+}
+
+/* Right side of the navbar (Search Icon) */
+.navbar-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.search-icon {
+    font-size: 20px;
+    color: white;
+    cursor: pointer;
+}
+
+/* Optional: Style for the search input on focus */
+.search-input:focus {
+    border: 2px solid #7a6fcd;
+}

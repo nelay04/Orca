@@ -20,7 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = '***REMOVED***'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['https://link.orca2echo.xyz']
+# CSRF_TRUSTED_ORIGINS = ['https://link.orca2echo.xyz']
+CSRF_TRUSTED_ORIGINS = ['https://e2fb-202-168-85-83.ngrok-free.app']
 
 # Application definition
 INSTALLED_APPS = [
@@ -111,3 +112,10 @@ EMAIL_HOST_PASSWORD = '***REMOVED***'  # Gmail -> Manage your Google acc -> app 
 
 # In settings.py
 LOGIN_URL = 'signin'  # Custom login page
+
+# Base directory (adjust if necessary)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Media files settings
+MEDIA_URL = '/media/'  # URL prefix for serving media files
+MEDIA_ROOT = os.path.join(BASE_DIR, 'orca2echo', 'media')  # Path to the media directory

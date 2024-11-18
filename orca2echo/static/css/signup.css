@@ -2,24 +2,22 @@
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-  
-  }
-  
-  .logo_section {
+}
+
+.logo_section {
     width: inherit;
-    height: 25%;
-  }
-  
-  .logo_section h1,
-  .logo_section h2 {
+    height: 20%;
+}
+
+.logo_section h1,
+.logo_section h2 {
     margin: 0;
     padding: 0;
-  }
-  
-  
-  .logo_section h1 {
+}
+
+.logo_section h1 {
     margin-left: 10vw;
-    margin-top: 8vh;
+    margin-top: 5vh;
     font-family: 'Roboto', sans-serif;
     font-weight: 500;
     font-style: normal;
@@ -27,9 +25,9 @@
     color: rgba(255, 255, 255, 1);
     text-align: left;
     text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
-  }
-  
-  .logo_section h2 {
+}
+
+.logo_section h2 {
     margin-left: 12.5vw;
     font-family: 'Roboto', sans-serif;
     font-weight: 400;
@@ -38,42 +36,51 @@
     font-size: 1.2em;
     color: rgba(255, 255, 255, 1);
     text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
-  }
-  
-  
-  .form_section {
+}
+
+.form_section {
     width: inherit;
-    height: 75%;
+    height: 80%;
     background-color: rgba(0, 0, 0, 0.6);
     border-top-left-radius: 30px;
     border-top-right-radius: 30px;
     padding-top: 5%;
-  }
-  
-  .form_header {
+}
+
+.form_header {
     text-align: left;
     padding-left: 10%;
     color: rgb(255, 255, 255);
     font-weight: 500;
     font-size: 2.5em;
-  }
-  
-  .form_group {
+}
+
+.form_group {
     padding-left: 10%;
     padding-top: 1%;
     position: relative;
-  }
-  
-  .form_group label {
+}
+
+.form_group_row {
+    display: flex;
+    justify-content: space-between;
+    padding-left: 10%;
+    padding-top: 10%;
+}
+
+.form_group label{
     font-size: 1.35em;
     font-weight: 400;
     color: white;
-    padding-bottom: 10vh;
-  }
-  
-  .form_group input {
-    margin-top: 1vh;
+}
+.form_group select{
+    width: 81vw !important;
+}
+
+.form_group input,
+.form_group select {
     width: 78vw;
+    margin-top: 1vh;
     background-color: transparent;
     border-radius: 2px;
     height: 5vh;
@@ -86,16 +93,16 @@
     padding-left: 7px;
     padding-right: 7px;
     border-bottom: 2px solid rgba(255, 255, 255, 0.7);
-  }
-  
-  
-  .form_group input:focus {
+}
+
+.form_group input:focus,
+.form_group select:focus {
     background: rgba(0, 0, 0, 0.25);
     border-bottom: 2px solid rgb(255, 255, 255);
     border-radius: 5px;
-  }
-  
-  .form_group .icon {
+}
+
+.form_group .icon{
     position: absolute;
     right: 12vw;
     top: 72.5%;
@@ -103,13 +110,13 @@
     transform: translateY(-50%);
     font-size: 1.4em;
     color: white;
-  }
-  
-  .form_group input:focus+.icon {
+}
+
+.form_group input:focus + .icon{
     top: 20%;
-  }
-  
-  .submit_button {
+}
+
+.submit_button {
     margin-top: 1vh;
     width: 60vw;
     height: 5vh;
@@ -120,13 +127,13 @@
     background-color: rgba(200, 197, 245, 0.5);
     display: block;
     margin: 0 10%;
-  }
-  
-  .submit_button:active {
+}
+
+.submit_button:active {
     background-color: rgba(129, 121, 250, 1);
-  } 
-  
-  .overlay {
+}
+
+.overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -137,10 +144,9 @@
     display: none;
     justify-content: center;
     align-items: center;
-  }
-  
-  
-  .loader {
+}
+
+.loader {
     width: 50px;
     aspect-ratio: 1;
     border-radius: 50%;
@@ -148,9 +154,10 @@
     border-right-color: #a59de6;
     position: relative;
     animation: l24 1s infinite linear;
-  }
-  .loader:before,
-  .loader:after {
+}
+
+.loader:before,
+.loader:after {
     content: "";
     position: absolute;
     inset: -8px;
@@ -158,29 +165,27 @@
     border: inherit;
     animation: inherit;
     animation-duration: 2s;
-  }
-  .loader:after {
+}
+
+.loader:after {
     animation-duration: 4s;
-  }
-  @keyframes l24 {
-    100% {transform: rotate(1turn)}
-  }
-  
-  .error {
+}
+
+@keyframes l24 {
+    100% {
+        transform: rotate(1turn);
+    }
+}
+
+.error {
     color: red;
     margin: 0;
     padding: 0;
-    margin-left: 18%;
+    margin-left: 10%;
     margin-top: 1%;
-  }
+}
 
-  /* input[type="date"] {
-    padding-right: 30px; 
-    text-indent: -20px; 
-    margin-right: 15px; 
-    box-sizing: border-box;
-    appearance: none; 
-    color: white !important;
-  } */
-  
+.form_group {
+    margin-bottom: 20px; /* Add margin to increase the gap between inputs */
+  }
   

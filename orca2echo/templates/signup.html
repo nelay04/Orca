@@ -17,17 +17,12 @@ signup | Orca
   <div class="form_section">
     <div class="form_container">
       <h1 class="form_header">Sign Up</h1>
-      <form method="POST" action="/signin" id="signin-form">
+      <form method="POST" action="/signup" id="signup-form">
         {% csrf_token %}
         <div class="form_group">
-          <label for="first_name">First name</label>
-          <input type="text" id="first_name" name="first_name" placeholder="Snow Flake" required />
+          <label for="full_name">Full name</label>
+          <input type="text" id="full_name" name="full_name" placeholder="Snow Flake" required />
           <span class="icon"><i class="fas fa-user"></i></span>
-        </div>
-        <div class="form_group">
-          <label for="dob">Date of birth</label>
-          <input type="date" id="dob" name="dob" required />
-          <span class="icon"><i class="fas fa-calendar-alt"></i></span>
         </div>
         <div class="form_group">
           <label for="gender">Gender</label>
@@ -38,22 +33,26 @@ signup | Orca
             <option value="other">Other</option>
             <option value="prefer_not_to_say">Prefer not to say</option>
           </select>
+
         </div>
         <div class="form_group">
-          <label for="mothers_name">Mother's Name</label>
-          <input type="text" id="mothers_name" name="mothers_name" placeholder="Mother's Name" />
-          <span class="icon"><i class="fas fa-user-friends"></i></span>
+          <label for="dob">Date of birth</label>
+          <input type="text" id="dob" name="dob" placeholder="mm/dd/yyyy"
+            onfocus="(this.type='date'); this.max = new Date().toISOString().split('T')[0]" onblur="formatDate(this)"
+            required />
         </div>
-        {% if error %}
-        <p class="error">{{ error }}</p>
-        {% endif %}
-        <div class="form_group">
-          <br />
-          <button type="submit" class="submit_button" id="submit-button">Next</button>
-        </div>
-      </form>
+
     </div>
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+    <div class="form_group">
+      <br />
+      <button type="submit" class="submit_button" id="submit-button">Next</button>
+    </div>
+    </form>
   </div>
+</div>
 </div>
 
 <!-- Full-screen overlay with loader -->

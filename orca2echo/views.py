@@ -1,18 +1,25 @@
-from django.shortcuts import render, HttpResponse, redirect
+from django.shortcuts import render, HttpResponse, redirect  # type: ignore
 import requests
-from django.core.mail import send_mail
+from django.core.mail import send_mail  # type: ignore
 from .models import Otp
 import sys
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth import authenticate, login, logout
-from .models import  UserData
+from django.contrib.auth.decorators import login_required, user_passes_test  # type: ignore
+from django.contrib.auth import authenticate, login, logout  # type: ignore
+from .models import UserData, ProfilePicture
+from datetime import datetime
+
 # from .models import  User
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User  # type: ignore
 import time
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.http import Http404
-from .services.auth_service import generate_otp, send_otp, generate_username
+from django.core.exceptions import ValidationError  # type: ignore
+from django.core.validators import validate_email  # type: ignore
+from django.http import Http404  # type: ignore
+from .services.auth_service import (
+    generate_otp,
+    send_otp,
+    generate_username,
+    get_demo_img_text,
+)
 from .services.model_service import (
     get_user_by_email,
     retrieve_otp,
@@ -20,14 +27,30 @@ from .services.model_service import (
     get_user_by_username,
     delete_otp_by_email,
 )
-
+from .services.mongo_service import (
+    update_fields_by_email,
+    get_user_data_by_email,
+    get_user_data_by_user_name,
+    update_fields_by_user_name,
+)
 
 # Create your views here.
 
+
 @login_required(login_url="signin")
 def index(request):
+    user_name = request.user.username
+    user_data = get_user_data_by_user_name(
+        collection_name="profile_picture",
+        user_name=user_name,
+    )
+    base64_string = user_data.get("profile_picture")
     # Render the page and pass the user to the template
-    return render(request, "index.html", {"auth_user": request.user})
+    return render(
+        request,
+        "index.html",
+        {"auth_user": request.user, "base64_image": base64_string},
+    )
 
 
 def mobile_only(request):
@@ -45,7 +68,7 @@ def mobile_only(request):
 def signin(request):
     if request.user.is_authenticated:
         # Redirect to a different page (e.g., home or dashboard)
-        return redirect('orca') 
+        return redirect("orca")
     if request.method == "POST":
         email = request.POST.get("email")
 
@@ -74,7 +97,9 @@ def signin(request):
             if if_user is not None:
                 # Check if the user is a superuser
                 if if_user.is_superuser:
-                    return HttpResponse("You're a superuser. login in admin page to automatically login here")  # Response for superuser
+                    return HttpResponse(
+                        "You're a superuser. login in admin page to automatically login here"
+                    )  # Response for superuser
 
                 # Update the password to OTP if the user exists
                 if_user.set_password(
@@ -91,7 +116,6 @@ def signin(request):
                 # Redirect to OTP page or render the OTP template
                 return render(request, "otp.html")
 
-
             else:
                 # Generate username for new user
                 username = generate_username(email)
@@ -105,6 +129,15 @@ def signin(request):
                 # Mongo user_data table
                 new_user_obj = UserData(email=email)
                 result = new_user_obj.save()
+                new_profile_picture_object = ProfilePicture(user_name=username)
+                result = new_profile_picture_object.save()
+
+                demo_img_text = get_demo_img_text()
+                result_id = update_fields_by_user_name(
+                    collection_name = 'profile_picture',
+                    user_name=username,
+                    updates={"profile_picture": demo_img_text},
+                )
 
                 # Save OTP and ID in session
                 request.session["email"] = email
@@ -122,7 +155,7 @@ def signin(request):
 def verify_otp(request):
     if request.user.is_authenticated:
         # Redirect to a different page (e.g., home or dashboard)
-        return redirect('orca') 
+        return redirect("orca")
     if request.method == "POST":
         entered_otp = request.POST.get("otp")  # Get OTP entered by the user
         email = request.session.get("email")  # Retrieve the user ID from session
@@ -132,41 +165,33 @@ def verify_otp(request):
 
         if entered_otp == str(original_otp):
             # OTP is correct, proceed with logging in
-            auth_user = authenticate(
-                request, username=username, password=original_otp, email=email
-            )  # Create User instance
-            login(request, auth_user)
             delete_otp_by_email(email)
+            user = get_user_data_by_email(collection_name="user_data", email=email)
 
-            # Example of deleting a specific session variable
-            del request.session["email"]
-            del request.session["username"]
-            user = UserData.get_user_by_email(email)
-            
             if user.get("is_new_user"):
+                request.session["original_otp"] = original_otp
                 # Redirect to OTP page or render the OTP template
-                return render(request, "signup.html")
+                return render(request, "signup.html")  # Redirect to the home page
             else:
+                auth_user = authenticate(
+                    request, username=username, password=original_otp, email=email
+                )  # Create User instance
+                login(request, auth_user)
+                # Check if session variables exist before deleting
+                if "email" in request.session:
+                    del request.session["email"]
+
+                if "username" in request.session:
+                    del request.session["username"]
+
                 return redirect("orca")  # Redirect to the home page
-
-
-
-
 
         else:
             error_message = "Invalid OTP"
             return render(request, "otp.html", {"error_message": error_message})
 
     else:
-        return render(
-            request,
-            "error.html",
-            {
-                "error_code": "404",
-                "error_header": "Error 404 - Not Found",
-                # "error_body": "This website is only available on mobile devices.",
-            },
-        )
+        return redirect("signin")
 
 
 # Log out the user and redirect to the signin page
@@ -175,23 +200,110 @@ def user_logout(request):
     return redirect("signin")  # Redirect to the signin page
 
 
-
 def show_base64_image(request):
     # Path to the text file containing the base64 string
-    file_path = '.a.txt'  # Ensure the file is in the same folder as this view file
+    file_path = ".a.txt"  # Ensure the file is in the same folder as this view file
     base64_string = ""
 
     # Read the base64 string from the text file
     try:
         with open(file_path, "r") as text_file:
-            base64_string = text_file.read().strip()  # Read and remove any extra whitespace
+            base64_string = (
+                text_file.read().strip()
+            )  # Read and remove any extra whitespace
     except FileNotFoundError:
         base64_string = "File not found."
 
     # Pass the base64 string to the template
-    return render(request, 'show_image.html', {'base64_image': base64_string})
+    return render(request, "show_image.html", {"base64_image": base64_string})
 
 
 def signup(request):
-    # Render the page and pass the user to the template
-    return render(request, "signup.html")
+    if request.method == "POST":
+        email = request.session.get("email")  # Retrieve the user data from session
+        username = request.session.get("username")
+        original_otp = request.session.get("original_otp")
+
+        full_name = request.POST.get("full_name")
+        gender = request.POST.get("gender")
+        dob = request.POST.get("dob")
+        # Validate `full_name`
+        if not full_name:
+            return render(request, "signup.html", {"error": "Full name is required."})
+        if len(full_name) < 2:
+            return render(
+                request,
+                "signup.html",
+                {"error": "Full name must be at least 2 characters long."},
+            )
+        if not full_name.replace(" ", "").isalpha():
+            return render(
+                request,
+                "signup.html",
+                {"error": "Full name should only contain alphabets."},
+            )
+
+        # Validate `gender`
+        if not gender:
+            return render(request, "signup.html", {"error": "Gender is required."})
+        if gender not in ["male", "female", "other", "prefer_not_to_say"]:
+            return render(
+                request,
+                "signup.html",
+                {
+                    "error": "Gender must be one of 'Male', 'Female','Other' or 'prefer not to say'."
+                },
+            )
+
+        # Validate `dob` (Date of Birth)
+        if not dob:
+            return render(
+                request, "signup.html", {"error": "Date of birth is required."}
+            )
+        try:
+            # Assuming `dob` is in the format 'YYYY-MM-DD'
+            dob_date = datetime.strptime(dob, "%Y-%m-%d")
+            if dob_date > datetime.now():
+                return render(
+                    request,
+                    "signup.html",
+                    {"error": "Date of birth cannot be in the future."},
+                )
+        except ValueError:
+            return render(
+                request,
+                "signup.html",
+                {"error": "Invalid date of birth format. Use 'YYYY-MM-DD'."},
+            )
+
+        # If validation passes, proceed with your logic
+        # Render the page or redirect as necessary
+
+        update_fields_by_email(
+            collection_name="user_data",
+            email=email,
+            updates={
+                "user_name": username,
+                "full_name": full_name,
+                "gender": gender,
+                "dob": dob,
+                "is_new_user": False,
+            },
+        )
+
+        auth_user = authenticate(
+            request, username=username, password=original_otp, email=email
+        )  # Create User instance
+        login(request, auth_user)
+        # Check if session variables exist before deleting
+        if "email" in request.session:
+            del request.session["email"]
+
+        if "username" in request.session:
+            del request.session["username"]
+
+        if "original_otp" in request.session:
+            del request.session["original_otp"]
+        return redirect("orca")  # Redirect to the home page
+    else:
+        return redirect("signin")

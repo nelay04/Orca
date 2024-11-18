@@ -3,3 +3,4 @@ requests
 datetime
 django-user-agents
 pymongo
+cryptography

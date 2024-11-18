@@ -3,19 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Orca</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/index.css' %}" />
 </head>
 <body>
-    <h1>Welcome to the Index Page</h1>
-
-    <h2><strong>Username:</strong> {{ auth_user.username }}</h2>
-    <h2><strong>Email:</strong> {{ auth_user.email }}</h2>
+    <!-- Sticky Navbar -->
+    <nav class="navbar">
+        <div class="navbar-left">
+            <!-- Use Base64 encoded image in the src attribute -->
+            <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="profile-img" />
+        </div>
+        <div class="navbar-center">
+            <input type="text" id="searchInput" placeholder="Search..." class="search-input" />
+        </div>
+        <div class="navbar-right">
+            <i id="searchIcon" class="fa fa-search search-icon"></i>
+        </div>
+    </nav>
 
     <!-- Logout Form -->
     <form method="POST" action="{% url 'logout' %}">
         {% csrf_token %}
         <button type="submit">Logout</button>
     </form>
-
+    <script src="{% static 'js/index.js' %}"></script>
 </body>
 </html>
