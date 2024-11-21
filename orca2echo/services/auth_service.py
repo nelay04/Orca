@@ -7,7 +7,7 @@ from django.utils.html import strip_tags  # type: ignore
 from datetime import datetime
 import time
 import os
-from django.conf import settings
+from django.conf import settings # type: ignore
 
 
 def generate_otp():

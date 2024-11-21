@@ -1,32 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Orca</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/index.css' %}" />
-</head>
-<body>
+  </head>
+  <body>
     <!-- Sticky Navbar -->
     <nav class="navbar">
-        <div class="navbar-left">
-            <!-- Use Base64 encoded image in the src attribute -->
-            <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="profile-img" />
-        </div>
-        <div class="navbar-center">
-            <input type="text" id="searchInput" placeholder="Search..." class="search-input" />
-        </div>
-        <div class="navbar-right">
-            <i id="searchIcon" class="fa fa-search search-icon"></i>
-        </div>
+      <div class="navbar-left">
+        <!-- Clicking the image opens the sidebar -->
+        <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="profile-img" onclick="openSidebar()" />
+      </div>
     </nav>
+
+    <!-- Sidebar -->
+    <div id="mySidebar" class="sidebar">
+      <span class="close-btn" onclick="closeSidebar()">&times;</span>
+      <div class="sidebar-content">
+        <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="sidebar_img" onclick="openSidebar()" />
+        {% if name %}
+        <h2>{{ name }}</h2>
+        {% endif %}
+
+        {% comment %} <p>Welcome to the sidebar!</p> {% endcomment %}
+        <a href="/logout">logout</a>
+        <a href="#">Link 2</a>
+      </div>
+    </div>
 
     <!-- Logout Form -->
     <form method="POST" action="{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit">Logout</button>
+      {% csrf_token %}
+      <button type="submit">Logout</button>
     </form>
+
     <script src="{% static 'js/index.js' %}"></script>
-</body>
+  </body>
 </html>

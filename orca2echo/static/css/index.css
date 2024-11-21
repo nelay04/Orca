@@ -3,6 +3,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: 'Roboto', sans-serif;
 }
 
 /* Navbar Styles */
@@ -37,16 +38,6 @@
     justify-content: center;
 }
 
-.search-input {
-    width: 0;
-    padding: 8px 12px;
-    border-radius: 20px;
-    border: none;
-    outline: none;
-    font-size: 16px;
-    transition: width 0.3s ease-in-out; /* Smooth transition for expanding/collapsing */
-    opacity: 0;
-}
 
 /* Right side of the navbar (Search Icon) */
 .navbar-right {
@@ -55,13 +46,58 @@
     justify-content: flex-end;
 }
 
-.search-icon {
-    font-size: 20px;
+
+/* Sidebar styles */
+.sidebar {
+    height: 100%;
+    width: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: #111;
+    overflow-x: hidden;
+    transition: 0.5s;
+    padding-top: 60px;
+    z-index: 1000;
+}
+
+.sidebar-content {
+    padding: 20px;
+    color: white;
+}
+
+.sidebar a {
+    padding: 8px 8px 8px 32px;
+    text-decoration: none;
+    font-size: 25px;
+    color: white;
+    display: block;
+    transition: 0.3s;
+}
+
+.sidebar a:hover {
+    color: #f1f1f1;
+}
+
+.sidebar h2 {
+    text-align: center;
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 25px;
+    font-size: 36px;
+    margin-left: 50px;
     color: white;
     cursor: pointer;
 }
 
-/* Optional: Style for the search input on focus */
-.search-input:focus {
-    border: 2px solid #7a6fcd;
+.sidebar_img {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-left: 30%;
+    margin-top: 0;
 }

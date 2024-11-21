@@ -46,10 +46,17 @@ def index(request):
     )
     base64_string = user_data.get("profile_picture")
     # Render the page and pass the user to the template
+    name = get_user_data_by_user_name(
+        collection_name="user_data",
+        user_name=user_name,
+    )
+    print(user_name)
+    full_name = name.get("full_name")
+
     return render(
         request,
         "index.html",
-        {"auth_user": request.user, "base64_image": base64_string},
+        {"auth_user": request.user, "base64_image": base64_string, "name": full_name},
     )
 
 
@@ -134,7 +141,7 @@ def signin(request):
 
                 demo_img_text = get_demo_img_text()
                 result_id = update_fields_by_user_name(
-                    collection_name = 'profile_picture',
+                    collection_name="profile_picture",
                     user_name=username,
                     updates={"profile_picture": demo_img_text},
                 )
