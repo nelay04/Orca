@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title> {% block title %}
+
+    {% endblock %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/index_base.css' %}" />
+  {% block css %}
+
+  {% endblock %}
+</head>
+
+<body>
+  <!-- Sticky Navbar -->
+  <nav class="navbar">
+    <div class="navbar-left">
+      <i class="fa-solid fa-bars" onclick="openSidebar()"></i>
+    </div>
+
+    <div class="navbar-right">
+      <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="profile-img" />
+    </div>
+  </nav>
+  <!-- Sidebar -->
+  <div id="mySidebar" class="sidebar">
+    <div class="sidebar-content">
+      <div class="profile">
+        <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="sidebar_img" />
+        {% if name %}
+        <p class="name">{{ name }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="underscore"></div>
+
+    <div class="menu">
+      <p>Connections and Requests</p>
+      <a href="/add_friend"><i class="fa-solid fa-user-plus"></i>Add Friend</a>
+      <a href="/"><i class="fa-solid fa-user-friends"></i>Friends</a>
+      <a href="/"><i class="fa-solid fa-user-clock"></i>Friend Requests</a>
+    </div>
+    <div class="underscore_partial"></div>
+    <div class="menu">
+      <p>Theme Settings</p>
+      <div class="theme-toggle">
+        <label class="theme-label" for="theme-switch"><i id="theme-icon" class="fa-solid fa-sun"></i>Dark Mode</label>
+        <div class="toggle">
+          <input type="checkbox" id="btn">
+          <label for="btn">
+            <span class="thumb"></span>
+          </label>
+          <div class="light"></div>
+        </div>
+      </div>
+    </div>
+    <div class="underscore_partial"></div>
+    <div class="menu">
+      <p class="danger_p">Danger Zone</p>
+      <a class="danger" href="/logout"><i class="fa-solid fa-arrow-right-from-bracket"></i>Sign out</a>
+    </div>
+  </div>
+  <!-- Overlay -->
+  <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
+
+  {% block body %}
+
+  {% endblock %}
+
+  <script src="{% static 'js/index_base.js' %}"></script>
+  {% block js %}
+
+  {% endblock %}
+</body>
+
+</html>

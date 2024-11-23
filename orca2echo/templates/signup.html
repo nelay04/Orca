@@ -21,7 +21,7 @@ signup | Orca
         {% csrf_token %}
         <div class="form_group">
           <label for="full_name">Full name</label>
-          <input type="text" id="full_name" name="full_name" placeholder="Snow Flake" required />
+          <input type="text" id="full_name" name="full_name" placeholder="Snow Flake" oninput="this.value = this.value.replace(/[^a-zA-Z ]/g, '');" required />
           <span class="icon"><i class="fas fa-user"></i></span>
         </div>
         <div class="form_group">

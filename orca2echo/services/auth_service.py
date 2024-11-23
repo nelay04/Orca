@@ -38,26 +38,34 @@ def send_otp(otp, email):
         html_message=html_message,  # HTML content of the email
     )
 
+def generate_search_id():
+    # Step 2: Get the current time formatted as YYYYMMDDHHMMSS
+    current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+    # Step 3: Add nanoseconds for even finer granularity
+    nanoseconds = int(time.time_ns() % 1_000_000_000)  # Get the current nanoseconds
+    # Step 4: Combine the prefix, current time, and nanoseconds to form the username
+    search_id = f"{current_time}{nanoseconds}"
 
-def generate_username(email):
+    return search_id
+
+
+def generate_username(email,search_id):
     # Step 1: Extract the part before '@' from the email
     username_prefix = email.split("@")[0]
 
-    # Step 2: Get the current time formatted as YYYYMMDDHHMMSS
-    current_time = datetime.now().strftime("%Y%m%d%H%M%S")
-
-    # Step 3: Add nanoseconds for even finer granularity
-    nanoseconds = int(time.time_ns() % 1_000_000_000)  # Get the current nanoseconds
-
     # Step 4: Combine the prefix, current time, and nanoseconds to form the username
-    username = f"{username_prefix}{current_time}{nanoseconds}"
+    username = f"{username_prefix}{search_id}"
 
     return username
 
 
-def get_demo_img_text():
-    # Construct the file path for 'demo_profile_img.txt' in the media folder
-    file_path = os.path.join(settings.MEDIA_ROOT, "demo_profile_img.txt")
+def get_demo_img_text(gender):
+    if gender == "male":
+        file_path = os.path.join(settings.MEDIA_ROOT, "boy_profile.txt")
+    elif gender == "female":
+        file_path = os.path.join(settings.MEDIA_ROOT, "girl_profile.txt")
+    else:
+        file_path = os.path.join(settings.MEDIA_ROOT, "other_profile.txt")
 
     # Read the content of the text file
     try:
@@ -68,3 +76,18 @@ def get_demo_img_text():
             return file_content
     except FileNotFoundError:
         return "File not found."
+
+
+def generate_short_name(full_name):
+    # Split the name into parts and remove any extra spaces
+    name_parts = full_name.strip().split()
+    # Get the first letter of each part and convert to uppercase
+    short_name = ''.join([part[0].upper() for part in name_parts])
+    return short_name
+
+def normalize_full_name(full_name):
+    # Remove leading, trailing, and extra spaces between words
+    cleaned_name = ' '.join(full_name.strip().split())
+    # Convert the name to title case
+    normalized_name = cleaned_name.title()
+    return normalized_name

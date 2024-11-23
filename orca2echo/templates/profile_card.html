@@ -1,0 +1,39 @@
+{% extends 'index_base.html' %}
+{% block title %}
+profile_card_{% if short_name %}{{ short_name }}{% endif %} | Orca
+{% endblock %}
+
+{% block css %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/profile_card.css' %}" />
+{% endblock %}
+
+{% block body %}
+
+
+
+{% if searched_name %}
+<div class="card_container">
+    <div class="card_body">
+        <div class="gender"><i class="fa-solid {{gender_icon_string}}"></i></div>
+        <img src="data:image/png;base64,{{ searched_base64_string }}" alt="image" class="card_img" />
+        <p class="card_name">{{searched_name}}</p>
+        <div class="about">
+            <p class="card_about">{{searched_about}}</p>
+        </div>
+        <div class="add_friend_button">
+            <button type="submit" class="submit_button" id="submit-button">Add friend</button>
+        </div>
+    </div>
+
+</div>
+{% else %}
+<!-- No user found, display this message -->
+<p class="no_user_found">No user found with the provided short name and ID number.</p>
+{% endif %}
+
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/profile_card.js' %}"></script>
+{% endblock %}

@@ -20,8 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = '***REMOVED***'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
-# CSRF_TRUSTED_ORIGINS = ['https://link.orca2echo.xyz']
-CSRF_TRUSTED_ORIGINS = ['https://e2fb-202-168-85-83.ngrok-free.app']
+CSRF_TRUSTED_ORIGINS = ['https://link.orca2echo.xyz']
+# CSRF_TRUSTED_ORIGINS = ['https://c88d-202-168-85-195.ngrok-free.app']
 
 # Application definition
 INSTALLED_APPS = [

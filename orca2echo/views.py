@@ -5,9 +5,9 @@ from .models import Otp
 import sys
 from django.contrib.auth.decorators import login_required, user_passes_test  # type: ignore
 from django.contrib.auth import authenticate, login, logout  # type: ignore
-from .models import UserData, ProfilePicture
+from .models import UserData, UserProfile
 from datetime import datetime
-
+import re
 # from .models import  User
 from django.contrib.auth.models import User  # type: ignore
 import time
@@ -19,6 +19,9 @@ from .services.auth_service import (
     send_otp,
     generate_username,
     get_demo_img_text,
+    generate_search_id,
+    generate_short_name,
+    normalize_full_name,
 )
 from .services.model_service import (
     get_user_by_email,
@@ -32,6 +35,7 @@ from .services.mongo_service import (
     get_user_data_by_email,
     get_user_data_by_user_name,
     update_fields_by_user_name,
+    get_profile_card,
 )
 
 # Create your views here.
@@ -41,7 +45,7 @@ from .services.mongo_service import (
 def index(request):
     user_name = request.user.username
     user_data = get_user_data_by_user_name(
-        collection_name="profile_picture",
+        collection_name="user_profile",
         user_name=user_name,
     )
     base64_string = user_data.get("profile_picture")
@@ -50,8 +54,11 @@ def index(request):
         collection_name="user_data",
         user_name=user_name,
     )
-    print(user_name)
+    # print(user_name)
     full_name = name.get("full_name")
+
+    request.session["base64_string"] = base64_string
+    request.session["full_name"] = full_name
 
     return render(
         request,
@@ -125,7 +132,9 @@ def signin(request):
 
             else:
                 # Generate username for new user
-                username = generate_username(email)
+                search_id = generate_search_id()
+                username = generate_username(email, search_id)
+
                 # Add a new user if not found
                 new_user = User.objects.create_user(
                     username=username, email=email, password=otp
@@ -136,19 +145,13 @@ def signin(request):
                 # Mongo user_data table
                 new_user_obj = UserData(email=email)
                 result = new_user_obj.save()
-                new_profile_picture_object = ProfilePicture(user_name=username)
+                new_profile_picture_object = UserProfile(user_name=username)
                 result = new_profile_picture_object.save()
-
-                demo_img_text = get_demo_img_text()
-                result_id = update_fields_by_user_name(
-                    collection_name="profile_picture",
-                    user_name=username,
-                    updates={"profile_picture": demo_img_text},
-                )
 
                 # Save OTP and ID in session
                 request.session["email"] = email
                 request.session["username"] = username
+                request.session["search_id"] = search_id
 
                 # Redirect to OTP page or render the OTP template
                 return render(request, "otp.html")
@@ -207,28 +210,11 @@ def user_logout(request):
     return redirect("signin")  # Redirect to the signin page
 
 
-def show_base64_image(request):
-    # Path to the text file containing the base64 string
-    file_path = ".a.txt"  # Ensure the file is in the same folder as this view file
-    base64_string = ""
-
-    # Read the base64 string from the text file
-    try:
-        with open(file_path, "r") as text_file:
-            base64_string = (
-                text_file.read().strip()
-            )  # Read and remove any extra whitespace
-    except FileNotFoundError:
-        base64_string = "File not found."
-
-    # Pass the base64 string to the template
-    return render(request, "show_image.html", {"base64_image": base64_string})
-
-
 def signup(request):
     if request.method == "POST":
         email = request.session.get("email")  # Retrieve the user data from session
         username = request.session.get("username")
+        search_id = request.session.get("search_id")
         original_otp = request.session.get("original_otp")
 
         full_name = request.POST.get("full_name")
@@ -237,6 +223,10 @@ def signup(request):
         # Validate `full_name`
         if not full_name:
             return render(request, "signup.html", {"error": "Full name is required."})
+        
+        if not re.match(r"^[A-Za-z ]+$", full_name):
+            return render(request, "signup.html", {"error": "Name must only contain letters (A-Z or a-z) and spaces."})
+        
         if len(full_name) < 2:
             return render(
                 request,
@@ -285,17 +275,27 @@ def signup(request):
 
         # If validation passes, proceed with your logic
         # Render the page or redirect as necessary
-
+        normalized_full_name=normalize_full_name(full_name)
+        short_name = generate_short_name(normalized_full_name)
         update_fields_by_email(
             collection_name="user_data",
             email=email,
             updates={
                 "user_name": username,
-                "full_name": full_name,
+                "full_name": normalized_full_name,
                 "gender": gender,
                 "dob": dob,
+                "search_id":search_id,
+                "short_name":short_name,
                 "is_new_user": False,
             },
+        )
+
+        demo_img_text = get_demo_img_text(gender)
+        result_id = update_fields_by_user_name(
+            collection_name="user_profile",
+            user_name=username,
+            updates={"profile_picture": demo_img_text},
         )
 
         auth_user = authenticate(
@@ -314,3 +314,77 @@ def signup(request):
         return redirect("orca")  # Redirect to the home page
     else:
         return redirect("signin")
+
+
+@login_required(login_url="signin")
+def add_friend(request):
+    base64_string = request.session.get(
+        "base64_string"
+    )  # Retrieve the user ID from session
+    full_name = request.session.get("full_name")  # Retrieve the user ID from session
+
+    return render(
+        request,
+        "add_friend.html",
+        {"auth_user": request.user, "base64_image": base64_string, "name": full_name},
+    )
+
+@login_required(login_url="signin")
+def search_profile(request):
+    if request.method == "GET":
+        short_name = request.GET.get('short_name', '').strip()
+        id_number = request.GET.get('id_number', '').strip()
+
+        # Validation
+        if not short_name or not id_number:
+            return render(request, "add_friend.html", {"error": "Please provide all required fields."})
+        
+        if not re.match(r"^[A-Za-z]+$", short_name):
+            return render(request, "add_friend.html", {"error": "Short name must only contain letters (A-Z or a-z) with no spaces or special characters."})
+        
+        if not id_number.isdigit():
+            return render(request, "add_friend.html", {"error": "ID number must only contain numeric characters (0-9)."})
+
+        if len(id_number) != 23:
+            return render(request, "add_friend.html", {"error": "ID number must contain exactly 23 digits."})
+        
+        base64_string = request.session.get(
+            "base64_string"
+        )  # Retrieve the user ID from session
+        full_name = request.session.get("full_name")  # Retrieve the user ID from session
+
+
+        searched_user_data = get_profile_card(short_name, id_number)
+
+        if searched_user_data is None:
+            return render(
+                request,
+                "profile_card.html",
+                {"auth_user": request.user, "base64_image": base64_string, "name": full_name,
+                },
+            )
+
+        searched_name = searched_user_data.get("full_name")
+
+        searched_user_profile_data = get_user_data_by_user_name(
+            collection_name="user_profile",
+            user_name=searched_user_data.get("user_name"),
+        )
+        searched_base64_string = searched_user_profile_data.get("profile_picture")
+        searched_about = searched_user_profile_data.get("about")
+
+        searched_gender = searched_user_data.get("gender")
+        if searched_gender == "male":
+            gender_icon_string = "fa-mars"
+        elif searched_gender == "female":
+            gender_icon_string = "fa-venus"
+        else:
+            gender_icon_string = "fa-mars-and-venus"
+
+        return render(
+            request,
+            "profile_card.html",
+            {"auth_user": request.user, "base64_image": base64_string, "name": full_name,
+             "searched_base64_string":searched_base64_string,"searched_about":searched_about, "searched_name":searched_name,"gender_icon_string":gender_icon_string,
+             },
+        )

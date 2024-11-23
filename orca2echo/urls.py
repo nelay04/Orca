@@ -8,6 +8,7 @@ urlpatterns = [
     path("signin", views.signin, name="signin"),
     path("verify_otp", views.verify_otp, name="verify_otp"),
     path('logout/', views.user_logout, name='logout'),
-    path('show/', views.show_base64_image, name='show'),
     path("signup", views.signup, name="signup"),
+    path("add_friend", views.add_friend, name="add_friend"),
+    path("search-profile", views.search_profile, name="search-profile"),
 ]

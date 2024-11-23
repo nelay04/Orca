@@ -43,3 +43,4 @@ def delete_otp_by_email(email):
         return None
     except Otp.DoesNotExist:
         return None
+
