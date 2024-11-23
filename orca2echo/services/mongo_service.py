@@ -80,17 +80,24 @@ def get_user_by_id(
         return None
 
 
-def get_profile_card(short_name: str, id_number: str):
-    try:
-        user_data_collection = db["user_data"]
-        user = user_data_collection.find_one(
-            {"short_name": short_name, "search_id": id_number}
+
+def find_an_object(collection_name: str, search_criteria: dict):
+    """
+        searched_user_data = find_an_object(
+            collection_name="user_data",
+            search_criteria={
+                "short_name": short_name,
+                "search_id": id_number,
+            },
         )
+    """
+    try:
+        # Access the specified collection
+        user_data_collection = db[collection_name]
+        # Search using the provided criteria
+        user = user_data_collection.find_one(search_criteria)
         return user
     except Exception as e:
         print(f"Error: {e}")
         return None
-    # if user:
-    #     return user  # Return the user data found in the database
-    # else:
-    #     return None  # No user found with the provided short_name and id_number
+

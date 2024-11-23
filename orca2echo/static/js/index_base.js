@@ -19,17 +19,27 @@ function closeSidebar() {
 // Function to apply theme and toggle icon
 const applyTheme = (theme) => {
     const themeIcon = document.getElementById("theme-icon");
+    const oopsImage = document.getElementById("oops-image");  // Reference to the image element
+
     if (theme === "dark") {
         document.documentElement.setAttribute("data-theme", "dark");
         if (themeIcon) {
             themeIcon.className = "fa-solid fa-moon";
             themeIcon.style.transition = "color 0.6s ease";  // Add transition for icon color change
         }
+        // Set the image source for dark theme from data attribute
+        if (oopsImage) {
+            oopsImage.src = oopsImage.getAttribute("data-dark-src");
+        }
     } else {
         document.documentElement.removeAttribute("data-theme");
         if (themeIcon) {
             themeIcon.className = "fa-solid fa-sun";
             themeIcon.style.transition = "color 0.6s ease";  // Add transition for icon color change
+        }
+        // Set the image source for light theme from data attribute
+        if (oopsImage) {
+            oopsImage.src = oopsImage.getAttribute("data-light-src");
         }
     }
 };

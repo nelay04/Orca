@@ -17,11 +17,15 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = '***REMOVED***'
+# SECRET_KEY = '***REMOVED***'
+SECRET_KEY="f4a7c0bf34ed7ae6e84f20ebe2e266a2"
+
 DEBUG = True
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['https://link.orca2echo.xyz']
-# CSRF_TRUSTED_ORIGINS = ['https://c88d-202-168-85-195.ngrok-free.app']
+CSRF_TRUSTED_ORIGINS = [
+    'https://link.orca2echo.xyz',
+    'https://20ee-202-168-85-133.ngrok-free.app',
+]
 
 # Application definition
 INSTALLED_APPS = [

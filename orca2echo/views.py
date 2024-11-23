@@ -5,9 +5,10 @@ from .models import Otp
 import sys
 from django.contrib.auth.decorators import login_required, user_passes_test  # type: ignore
 from django.contrib.auth import authenticate, login, logout  # type: ignore
-from .models import UserData, UserProfile
+from .models import UserData, UserProfile, FriendRequestList
 from datetime import datetime
 import re
+
 # from .models import  User
 from django.contrib.auth.models import User  # type: ignore
 import time
@@ -19,9 +20,13 @@ from .services.auth_service import (
     send_otp,
     generate_username,
     get_demo_img_text,
+    generate_nanoseconds,
     generate_search_id,
     generate_short_name,
     normalize_full_name,
+    get_oops_img_text,
+    decrypt,
+    get_current_time_ist,
 )
 from .services.model_service import (
     get_user_by_email,
@@ -35,7 +40,7 @@ from .services.mongo_service import (
     get_user_data_by_email,
     get_user_data_by_user_name,
     update_fields_by_user_name,
-    get_profile_card,
+    find_an_object,
 )
 
 # Create your views here.
@@ -132,8 +137,9 @@ def signin(request):
 
             else:
                 # Generate username for new user
-                search_id = generate_search_id()
-                username = generate_username(email, search_id)
+                nanoseconds = generate_nanoseconds()
+                search_id = generate_search_id(nanoseconds)
+                username = generate_username(email, nanoseconds)
 
                 # Add a new user if not found
                 new_user = User.objects.create_user(
@@ -223,10 +229,14 @@ def signup(request):
         # Validate `full_name`
         if not full_name:
             return render(request, "signup.html", {"error": "Full name is required."})
-        
+
         if not re.match(r"^[A-Za-z ]+$", full_name):
-            return render(request, "signup.html", {"error": "Name must only contain letters (A-Z or a-z) and spaces."})
-        
+            return render(
+                request,
+                "signup.html",
+                {"error": "Name must only contain letters (A-Z or a-z) and spaces."},
+            )
+
         if len(full_name) < 2:
             return render(
                 request,
@@ -275,7 +285,7 @@ def signup(request):
 
         # If validation passes, proceed with your logic
         # Render the page or redirect as necessary
-        normalized_full_name=normalize_full_name(full_name)
+        normalized_full_name = normalize_full_name(full_name)
         short_name = generate_short_name(normalized_full_name)
         update_fields_by_email(
             collection_name="user_data",
@@ -285,8 +295,8 @@ def signup(request):
                 "full_name": normalized_full_name,
                 "gender": gender,
                 "dob": dob,
-                "search_id":search_id,
-                "short_name":short_name,
+                "search_id": search_id,
+                "short_name": short_name,
                 "is_new_user": False,
             },
         )
@@ -323,56 +333,129 @@ def add_friend(request):
     )  # Retrieve the user ID from session
     full_name = request.session.get("full_name")  # Retrieve the user ID from session
 
-    return render(
-        request,
-        "add_friend.html",
-        {"auth_user": request.user, "base64_image": base64_string, "name": full_name},
-    )
+    if request.method == "POST":
+        receiver_short_name_enc = request.POST.get("short_name_enc")
+        receiver_id_number_enc = request.POST.get("id_number_enc")
+        receiver_short_name = decrypt(receiver_short_name_enc)
+        receiver_id_number = decrypt(receiver_id_number_enc)
+        searched_receiver_data = find_an_object(
+            collection_name="user_data",
+            search_criteria={
+                "short_name": receiver_short_name,
+                "search_id": receiver_id_number,
+            },
+        )
+        user_name_receiver = searched_receiver_data.get("user_name")
+        searched_receiver_profile_data = get_user_data_by_user_name(
+            collection_name="user_profile",
+            user_name=user_name_receiver,
+        )
+
+        current_time = get_current_time_ist()
+        new_request_object = FriendRequestList(
+            user_name_sender=request.user.username,
+            user_name_receiver=user_name_receiver,
+            request_time=current_time,
+        )
+        result = new_request_object.save()
+
+        searched_base64_string = searched_receiver_profile_data.get("profile_picture")
+        searched_about = searched_receiver_profile_data.get("about")
+        searched_name = searched_receiver_data.get("full_name")
+        searched_gender = searched_receiver_data.get("gender")
+        if searched_gender == "male":
+            gender_icon_string = "fa-mars"
+        elif searched_gender == "female":
+            gender_icon_string = "fa-venus"
+        else:
+            gender_icon_string = "fa-mars-and-venus"
+
+
+        return render(
+            request,
+            "profile_card.html",
+            {
+                "auth_user": request.user,
+                "base64_image": base64_string,
+                "name": full_name,
+                "btn_text": "Cancel Request",
+                "btn_color": "#f50100",
+                "searched_base64_string": searched_base64_string,
+                "searched_about": searched_about,
+                "searched_name": searched_name,
+                "gender_icon_string": gender_icon_string,
+                "its_me": "",
+                "short_name_enc": receiver_short_name_enc,
+                "id_number_enc": receiver_id_number_enc,
+            },
+        )
+    else:
+        return render(
+            request,
+            "add_friend.html",
+            {
+                "auth_user": request.user,
+                "base64_image": base64_string,
+                "name": full_name,
+            },
+        )
+
 
 @login_required(login_url="signin")
 def search_profile(request):
     if request.method == "GET":
-        short_name = request.GET.get('short_name', '').strip()
-        id_number = request.GET.get('id_number', '').strip()
+        short_name_enc = request.GET.get("short-name", "").strip()
+        id_number_enc = request.GET.get("id-number", "").strip()
+        short_name = decrypt(short_name_enc)
+        id_number = decrypt(id_number_enc)
 
-        # Validation
-        if not short_name or not id_number:
-            return render(request, "add_friend.html", {"error": "Please provide all required fields."})
-        
-        if not re.match(r"^[A-Za-z]+$", short_name):
-            return render(request, "add_friend.html", {"error": "Short name must only contain letters (A-Z or a-z) with no spaces or special characters."})
-        
-        if not id_number.isdigit():
-            return render(request, "add_friend.html", {"error": "ID number must only contain numeric characters (0-9)."})
-
-        if len(id_number) != 23:
-            return render(request, "add_friend.html", {"error": "ID number must contain exactly 23 digits."})
-        
         base64_string = request.session.get(
             "base64_string"
         )  # Retrieve the user ID from session
-        full_name = request.session.get("full_name")  # Retrieve the user ID from session
+        full_name = request.session.get(
+            "full_name"
+        )  # Retrieve the user ID from session
 
+        # searched_user_data = get_profile_card(short_name, id_number)
+        searched_user_data = find_an_object(
+            collection_name="user_data",
+            search_criteria={
+                "short_name": short_name,
+                "search_id": id_number,
+            },
+        )
 
-        searched_user_data = get_profile_card(short_name, id_number)
-
+        oops_string = get_oops_img_text("oops")
+        oops_dark_string = get_oops_img_text("oops_dark")
         if searched_user_data is None:
             return render(
                 request,
                 "profile_card.html",
-                {"auth_user": request.user, "base64_image": base64_string, "name": full_name,
+                {
+                    "auth_user": request.user,
+                    "base64_image": base64_string,
+                    "name": full_name,
+                    "oops_string": oops_string,
+                    "oops_dark_string": oops_dark_string,
                 },
             )
 
         searched_name = searched_user_data.get("full_name")
+        its_me = request.user.username == searched_user_data.get("user_name")
 
         searched_user_profile_data = get_user_data_by_user_name(
             collection_name="user_profile",
             user_name=searched_user_data.get("user_name"),
         )
+
+        searched_user_profile_data = find_an_object(
+            collection_name="user_profile",
+            search_criteria={
+                "user_name": searched_user_data.get("user_name"),
+            },
+        )
         searched_base64_string = searched_user_profile_data.get("profile_picture")
         searched_about = searched_user_profile_data.get("about")
-
         searched_gender = searched_user_data.get("gender")
         if searched_gender == "male":
             gender_icon_string = "fa-mars"
@@ -381,10 +464,47 @@ def search_profile(request):
         else:
             gender_icon_string = "fa-mars-and-venus"
 
+        #check if sent request is already active
+        if_friend_request = find_an_object(
+            collection_name="friend_request_list",
+            search_criteria={
+                "user_name_sender": request.user.username,
+                "user_name_receiver": searched_user_data.get("user_name"),
+            },
+        )
+        if if_friend_request:
+            if if_friend_request.get("is_active") is True:
+                btn_text = "Cancel request"
+                btn_color = "#f50100"
+                action = "/cancel-request"
+        else:
+            btn_text = "Add Friend"
+            btn_color = "#766bc9"
+            action = "/add-friend"
+
         return render(
             request,
             "profile_card.html",
-            {"auth_user": request.user, "base64_image": base64_string, "name": full_name,
-             "searched_base64_string":searched_base64_string,"searched_about":searched_about, "searched_name":searched_name,"gender_icon_string":gender_icon_string,
-             },
+            {
+                "auth_user": request.user,
+                "base64_image": base64_string,
+                "name": full_name,
+                "btn_text": btn_text,
+                "btn_color": btn_color,
+                "action": action,
+                "searched_base64_string": searched_base64_string,
+                "searched_about": searched_about,
+                "searched_name": searched_name,
+                "gender_icon_string": gender_icon_string,
+                "its_me": its_me,
+                "short_name_enc": short_name_enc,
+                "id_number_enc": id_number_enc,
+            },
         )
+
+
+@login_required(login_url="signin")
+def cancel_request(request):
+    return HttpResponse(
+    "Cancel Request"
+    )  # Response for superuser

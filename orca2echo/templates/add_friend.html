@@ -17,30 +17,23 @@ Add Friend | Orca
     <div class="form_section">
         <div class="form_container">
             <h1 class="form_header">Add Friend</h1><br />
-            <form method="GET" action="/search-profile" id="add-friend-form">
+            <form id="add-friend-form">
                 {# {% csrf_token %} #}
                 <div class="form_group">
                     <label for="short_name">Enter short name</label>
                     <input type="text" id="short_name" name="short_name" style="text-transform: uppercase;"
-                    oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '').toUpperCase();" required />
+                        oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '').toUpperCase();" required />
                     <span class="icon"><i class="fa-solid fa-file-signature"></i></span>
                 </div>
 
                 <br />
                 <div class="form_group">
                     <label for="id_number">Enter ID number</label>
-                    <input 
-                      type="text" 
-                      id="id_number" 
-                      name="id_number" 
-                      oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 23);" 
-                      maxlength="23"
-                      required 
-                    />
+                    <input type="text" id="id_number" name="id_number"
+                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" maxlength="20" pattern="^[0-9]{20}$"
+                        required />
                     <span class="icon"><i class="fa-solid fa-id-card"></i></span>
-                </div>                
-                  
-
+                </div>
                 {% if error %}
                 <p class="error">{{ error }}</p>
                 {% endif %}
@@ -54,9 +47,9 @@ Add Friend | Orca
 </div>
 
 <!-- Full-screen overlay with loader -->
-<div class="overlay_form" id="overlay_form">
+{% comment %} <div class="overlay_form" id="overlay_form">
     <div class="loader"></div>
-</div>
+</div> {% endcomment %}
 {% endblock %}
 
 {% block js %}

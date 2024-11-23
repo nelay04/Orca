@@ -14,22 +14,38 @@ profile_card_{% if short_name %}{{ short_name }}{% endif %} | Orca
 
 {% if searched_name %}
 <div class="card_container">
-    <div class="card_body">
+    <form method="POST" action="{{action}}" id="add-friend-req-form" class="card_body">
+        {% csrf_token %}
         <div class="gender"><i class="fa-solid {{gender_icon_string}}"></i></div>
         <img src="data:image/png;base64,{{ searched_base64_string }}" alt="image" class="card_img" />
         <p class="card_name">{{searched_name}}</p>
         <div class="about">
             <p class="card_about">{{searched_about}}</p>
         </div>
-        <div class="add_friend_button">
-            <button type="submit" class="submit_button" id="submit-button">Add friend</button>
-        </div>
-    </div>
 
+        <input type="text" id="short_name_enc" name="short_name_enc" value={{short_name_enc}} class="hidden"/>
+        <input type="text" id="id_number_enc" name="id_number_enc" value={{id_number_enc}} class="hidden"/>
+
+        {% if not its_me %}
+        <div class="add_friend_button">
+            <button type="submit" class="submit_button" id="submit-button" style="background-color: {{btn_color}};">{{btn_text}}</button>
+        </div>
+        {% endif %}
+    </form>
+
+
+    <div class="message">
 </div>
 {% else %}
-<!-- No user found, display this message -->
-<p class="no_user_found">No user found with the provided short name and ID number.</p>
+{% load static %}
+<div class="card_container">
+
+<!-- Add data attributes with the base64 image strings -->
+<img id="oops-image" src="data:image/png;base64,{{ oops_string }}" alt="image" class="oops_img" 
+    data-light-src="data:image/png;base64,{{ oops_string }}" 
+    data-dark-src="data:image/png;base64,{{ oops_dark_string }}" />
+
+</div>
 {% endif %}
 
 {% endblock %}

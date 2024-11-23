@@ -14,4 +14,5 @@ body {
     padding: 2.5% 2.5%;
     font-weight: lighter;
     font-size: 1.25rem;
+    user-select: none;
   }
