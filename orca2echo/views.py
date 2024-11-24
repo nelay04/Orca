@@ -338,6 +338,7 @@ def add_friend(request):
         receiver_id_number_enc = request.POST.get("id_number_enc")
         receiver_short_name = decrypt(receiver_short_name_enc)
         receiver_id_number = decrypt(receiver_id_number_enc)
+
         searched_receiver_data = find_an_object(
             collection_name="user_data",
             search_criteria={
@@ -345,20 +346,19 @@ def add_friend(request):
                 "search_id": receiver_id_number,
             },
         )
+
         user_name_receiver = searched_receiver_data.get("user_name")
         searched_receiver_profile_data = get_user_data_by_user_name(
             collection_name="user_profile",
             user_name=user_name_receiver,
         )
-
-        current_time = get_current_time_ist()
-        new_request_object = FriendRequestList(
-            user_name_sender=request.user.username,
-            user_name_receiver=user_name_receiver,
-            request_time=current_time,
+        if_friend_request = find_an_object(
+            collection_name="friend_request_list",
+            search_criteria={
+                "user_name_sender": request.user.username,
+                "user_name_receiver": searched_receiver_data.get("user_name"),
+            },
         )
-        result = new_request_object.save()
-
         searched_base64_string = searched_receiver_profile_data.get("profile_picture")
         searched_about = searched_receiver_profile_data.get("about")
         searched_name = searched_receiver_data.get("full_name")
@@ -370,6 +370,37 @@ def add_friend(request):
         else:
             gender_icon_string = "fa-mars-and-venus"
 
+        #check if there is already active request then bypass
+        if if_friend_request:
+            if if_friend_request.get("is_active") is True:
+                return render(
+                    request,
+                    "profile_card.html",
+                    {
+                        "auth_user": request.user,
+                        "base64_image": base64_string,
+                        "name": full_name,
+                        "btn_text": "Cancel Request",
+                        "btn_color": "#f50100",
+                        "action": "/cancel-request",
+                        "searched_base64_string": searched_base64_string,
+                        "searched_about": searched_about,
+                        "searched_name": searched_name,
+                        "gender_icon_string": gender_icon_string,
+                        "its_me": "",
+                        "short_name_enc": receiver_short_name_enc,
+                        "id_number_enc": receiver_id_number_enc,
+                    },
+                )
+
+        #if there is no active request already
+        current_time = get_current_time_ist()
+        new_request_object = FriendRequestList(
+            user_name_sender=request.user.username,
+            user_name_receiver=user_name_receiver,
+            request_time=current_time,
+        )
+        result = new_request_object.save()
 
         return render(
             request,
@@ -380,6 +411,7 @@ def add_friend(request):
                 "name": full_name,
                 "btn_text": "Cancel Request",
                 "btn_color": "#f50100",
+                "action": "/cancel-request",
                 "searched_base64_string": searched_base64_string,
                 "searched_about": searched_about,
                 "searched_name": searched_name,
@@ -473,8 +505,12 @@ def search_profile(request):
             },
         )
         if if_friend_request:
+            if if_friend_request.get("is_accepted") is True:
+                btn_text = "You're Friends"
+                btn_color = "#00e800"
+                # action = ""
             if if_friend_request.get("is_active") is True:
-                btn_text = "Cancel request"
+                btn_text = "Cancel Request"
                 btn_color = "#f50100"
                 action = "/cancel-request"
         else:

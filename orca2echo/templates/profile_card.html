@@ -14,7 +14,7 @@ profile_card_{% if short_name %}{{ short_name }}{% endif %} | Orca
 
 {% if searched_name %}
 <div class="card_container">
-    <form method="POST" action="{{action}}" id="add-friend-req-form" class="card_body">
+    <form method="POST" {% if action%} action="{{action}}"{% endif%} id="add-friend-req-form" class="card_body">
         {% csrf_token %}
         <div class="gender"><i class="fa-solid {{gender_icon_string}}"></i></div>
         <img src="data:image/png;base64,{{ searched_base64_string }}" alt="image" class="card_img" />
@@ -32,8 +32,6 @@ profile_card_{% if short_name %}{{ short_name }}{% endif %} | Orca
         </div>
         {% endif %}
     </form>
-
-
     <div class="message">
 </div>
 {% else %}
@@ -46,7 +44,12 @@ profile_card_{% if short_name %}{{ short_name }}{% endif %} | Orca
     data-dark-src="data:image/png;base64,{{ oops_dark_string }}" />
 
 </div>
+
 {% endif %}
+  <!-- Full-screen overlay with loader -->
+  <div class="form_overlay" id="form_overlay">
+    <div class="loader"></div>
+  </div>
 
 {% endblock %}
 
