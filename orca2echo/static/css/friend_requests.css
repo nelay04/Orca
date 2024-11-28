@@ -16,7 +16,8 @@
 
 /* Dark Mode Variables */
 [data-theme="dark"] {
-    --card-bg-color: rgb(10, 30, 50);;
+    --card-bg-color: rgb(10, 30, 50);
+    ;
     --text-color: rgb(255, 255, 255);
     --card-box-shadow: rgba(255, 255, 255, 0.24);
     --about-box-shadow: rgba(255, 255, 255, 0.1);
@@ -27,17 +28,20 @@
 .card_container {
     background-color: var(--card-bg-color);
     width: 100vw;
-    height: 720px !important;
+    min-height: 720px !important;
     overflow: hidden;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    /* justify-content: center; */
+    align-items: center;
+    gap: 5vh;
     padding-top: 10vh;
     user-select: none;
 }
 
 .card_body {
     width: 75vw;
-    height: 48.5vh;
+    height: 48.50vh;
     background-color: var(--bg-color);
     border-radius: 0px 15px 0px 15px;
     box-shadow: var(--card-box-shadow) 0px 3px 8px;
@@ -61,88 +65,98 @@
 
 .gender {
     height: 5vh;
-    display: flex;               /* Set the container to flexbox */
-    align-items: center;         /* Vertically center the content */
-    justify-content: flex-end;   /* Align the content (icon) to the right */
+    display: flex;
+    /* Set the container to flexbox */
+    align-items: center;
+    /* Vertically center the content */
+    justify-content: flex-end;
+    /* Align the content (icon) to the right */
     width: 100%;
     padding-right: 5vw;
     padding-top: 3.5vh;
 }
 
-.fa-mars{
+.fa-mars {
     font-size: 2.5rem;
     color: rgb(0, 0, 255);
 }
 
-.fa-venus{
+.fa-venus {
     font-size: 2.5rem;
     color: rgb(255, 0, 255);
 }
 
-.fa-mars-and-venus{
+.fa-mars-and-venus {
     font-size: 2.5rem;
     color: rgba(70, 65, 65, 0.484);
 }
 
 .about {
     width: 85%;
-    margin: 10px;                /* Add space around the container */
-    padding-bottom: 10px;               /* Add space inside the container */
-    padding-left: 10px;               /* Add space inside the container */
-    padding-right: 10px;               /* Add space inside the container */
-    background-color: var(--about-box-bg);   /* Light background color for contrast */
+    margin: 10px;
+    padding: 10px;
+    background-color: var(--about-box-bg); /* Light background color for contrast */
     border-left: 4px solid #ffc107; /* Highlight with a decorative border */
-    border-radius: 10px;         /* Smoothen the edges */
+    border-radius: 10px; /* Smoothen the edges */
     box-shadow: 0 2px 4px var(--about-box-shadow); /* Add a subtle shadow */
+    height: 150px; /* Fixed height for the container */
+    overflow-y: auto; /* Enable vertical scrolling if content exceeds height */
 }
 
 .card_about {
-    font-size: 1em !important;            /* Slightly larger font size */
+    font-size: 1em !important; /* Slightly larger font size */
     font-family: 'Georgia', serif; /* Use a serif font for elegance */
-    color: var(--text-color);             /* Darker text color for readability */
-    line-height: 1.25;            /* Increase line spacing for better readability */
-    text-align: justify;         /* Align text evenly on both sides */
-    margin: 0;                   /* Remove default margins for paragraph */
+    color: var(--text-color); /* Darker text color for readability */
+    line-height: 1.25; /* Increase line spacing for better readability */
+    text-align: justify; /* Align text evenly on both sides */
+    margin: 0; /* Remove default margins for paragraph */
+}
+
+
+.response_buttons {
+    display: flex;
+    gap: 2vw;
+    padding-top: 2vh;
 }
 
 .submit_button {
-    width: 60vw;
+    width: 27.5vw;
     height: 5vh;
     border-radius: 5px;
     font-size: 1.35em;
     font-weight: 500;
     color: white;
     display: block;
-    margin: 0 10%;
+    margin: 0 0%;
     border: none;
-  }
-  
-  .submit_button:active {
-    background-color: rgba(129, 121, 250, 1);
-  }
+}
 
-  .add_friend_button{
+.submit_button:active {
+    background-color: rgba(129, 121, 250, 1);
+}
+
+.add_friend_button {
     display: flex;
     margin-top: 1.2vh;
     justify-content: center;
-  }
+}
 
-  .oops_img{
+.oops_img {
     width: 75vw;
     height: 47vh;
     box-shadow: var(--card-box-shadow) 0px 3px 8px;
     border-radius: 0px 15px 0px 15px;
-  }
+}
 
-  .hidden{
+.hidden {
     height: 1px;
     width: 1px;
     display: none;
-  }
+}
 
 
 
-  .form_overlay {
+.form_overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -153,10 +167,10 @@
     display: none;
     justify-content: center;
     align-items: center;
-  }
-  
-  
-  .loader {
+}
+
+
+.loader {
     width: 50px;
     aspect-ratio: 1;
     border-radius: 50%;
@@ -164,9 +178,10 @@
     border-right-color: #a59de6;
     position: relative;
     animation: l24 1s infinite linear;
-  }
-  .loader:before,
-  .loader:after {
+}
+
+.loader:before,
+.loader:after {
     content: "";
     position: absolute;
     inset: -8px;
@@ -174,10 +189,14 @@
     border: inherit;
     animation: inherit;
     animation-duration: 2s;
-  }
-  .loader:after {
+}
+
+.loader:after {
     animation-duration: 4s;
-  }
-  @keyframes l24 {
-    100% {transform: rotate(1turn)}
-  }
+}
+
+@keyframes l24 {
+    100% {
+        transform: rotate(1turn)
+    }
+}

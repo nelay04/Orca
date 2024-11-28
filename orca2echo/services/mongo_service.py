@@ -1,7 +1,7 @@
 from db_connection import db
 from pymongo import errors  # type: ignore
 from bson import ObjectId  # type: ignore
-
+from typing import Dict, Optional, Any, List
 
 # result_id = update_fields(email="user@example.com",updates={"full_name": "Snow Flake", "dob": "2024-01-31"})
 def update_fields_by_email(
@@ -80,24 +80,110 @@ def get_user_by_id(
         return None
 
 
-
-def find_an_object(collection_name: str, search_criteria: dict):
+def find_an_object(collection_name: str, search_criteria: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
+    Search for an object in a MongoDB collection based on search criteria.
+
+    Args:
+        collection_name (str): The name of the collection to search in.
+        search_criteria (dict): A dictionary containing the search criteria.
+
+    Returns:
+        dict | None: The found document or None if no document is found or an error occurs.
+
+    Example:
         searched_user_data = find_an_object(
             collection_name="user_data",
             search_criteria={
-                "short_name": short_name,
-                "search_id": id_number,
+                "short_name": "john_doe",
+                "search_id": 12345,
             },
         )
     """
     try:
         # Access the specified collection
-        user_data_collection = db[collection_name]
+        user_data_collection = db[collection_name]  # Assumes `db` is a valid MongoDB database instance
         # Search using the provided criteria
         user = user_data_collection.find_one(search_criteria)
         return user
     except Exception as e:
-        print(f"Error: {e}")
+        # Log the error (it's a good idea to use proper logging instead of print statements)
+        print(f"Error occurred while searching for object in collection '{collection_name}': {e}")
         return None
 
+
+
+def find_all_objects(collection_name: str, search_criteria: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """
+    Search for all objects in a MongoDB collection based on search criteria.
+
+    Args:
+        collection_name (str): The name of the collection to search in.
+        search_criteria (dict): A dictionary containing the search criteria.
+
+    Returns:
+        list | None: A list of documents that match the criteria, or None if an error occurs.
+
+    Example:
+        all_users_data = find_all_objects(
+            collection_name="user_data",
+            search_criteria={
+                "status": "active",
+            },
+        )
+    """
+    try:
+        # Access the specified collection
+        user_data_collection = db[collection_name]  # Assumes `db` is a valid MongoDB database instance
+        # Search using the provided criteria
+        users = user_data_collection.find(search_criteria)
+        return list(users)  # Convert cursor to list and return
+    except Exception as e:
+        # Log the error
+        print(f"Error occurred while searching for objects in collection '{collection_name}': {e}")
+        return None
+
+
+
+def update_objects(
+    collection_name: str, 
+    search_criteria: Dict[str, Any], 
+    update_data: Dict[str, Any]
+) -> Optional[str]:
+    """
+    Update fields of objects in a MongoDB collection based on search criteria.
+
+    Args:
+        collection_name (str): The name of the collection to search in.
+        search_criteria (dict): A dictionary containing the search criteria.
+        update_data (dict): A dictionary containing the fields to update.
+
+    Returns:
+        str | None: A success message if update is successful, or None if an error occurs.
+
+    Example:
+        update_result = update_objects(
+            collection_name="user_data",
+            search_criteria={"status": "active"},
+            update_data={"status": "inactive"}
+        )
+    """
+    try:
+        # Access the specified collection
+        collection = db[collection_name]  # Assumes `db` is a valid MongoDB database instance
+        
+        # Perform the update
+        result = collection.update_many(  # Or use update_one if only one document needs updating
+            search_criteria,
+            {"$set": update_data}  # Use the $set operator to update specific fields
+        )
+        
+        if result.matched_count > 0:
+            return "Update successful"
+        else:
+            return "No documents matched the criteria"
+    
+    except Exception as e:
+        # Log the error
+        print(f"Error occurred while updating objects in collection '{collection_name}': {e}")
+        return None

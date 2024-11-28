@@ -97,13 +97,14 @@ class FriendRequestList:
         user_name_receiver: str = None,
         is_active: bool = True,
         request_time: str = None,
-        request_count: int = None,
+        request_count: int = 0,
         is_accepted: bool = False,
-        acceptance_count: int = None,
-        is_rejected: bool = False,
-        rejection_count: int = None,
-        respond_time: str = None,
+        acceptance_count: int = 0,
+        is_declined: bool = False,
+        declination_count: int = 0,
+        response_time: str = None,
         is_cancelled: bool = False,
+        cancellation_count: int = 0,
         cancellation_time: str = None,
     ):
         self.user_name_sender = user_name_sender
@@ -113,10 +114,11 @@ class FriendRequestList:
         self.request_count = request_count
         self.is_accepted = is_accepted
         self.acceptance_count = acceptance_count
-        self.is_rejected = is_rejected
-        self.rejection_count = rejection_count
-        self.respond_time = respond_time
+        self.is_declined = is_declined
+        self.declination_count = declination_count
+        self.response_time = response_time
         self.is_cancelled = is_cancelled
+        self.cancellation_count = cancellation_count
         self.cancellation_time = cancellation_time
 
     def save(self):
@@ -128,10 +130,11 @@ class FriendRequestList:
             "request_count": self.request_count,
             "is_accepted": self.is_accepted,
             "acceptance_count": self.acceptance_count,
-            "is_rejected": self.is_rejected,
-            "rejection_count": self.rejection_count,
-            "respond_time": self.respond_time,
+            "is_declined": self.is_declined,
+            "declination_count": self.declination_count,
+            "response_time": self.response_time,
             "is_cancelled": self.is_cancelled,
+            "cancellation_count": self.cancellation_count,
             "cancellation_time": self.cancellation_time,
         }
         try:

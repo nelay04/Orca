@@ -1,0 +1,45 @@
+{% extends 'index_base.html' %}
+{% block title %}
+Friend Requests
+{% if short_name %}{{ short_name }}{% endif %} | Orca
+{% endblock %}
+
+{% block css %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/friend_requests.css' %}" />
+{% endblock %}
+
+{% block body %}
+
+
+<div class="card_container">
+{% for request_data in friend_request_data %}
+    <form method="POST" action="/" id="add-friend-req-form" class="card_body">
+        {% csrf_token %}
+        <div class="gender"><i class="fa-solid {{ request_data.user_profile.gender_icon_string }}"></i></div>
+        <img src="data:image/png;base64,{{ request_data.user_profile.profile_picture }}" alt="image" class="card_img" />
+        <p class="card_name">{{ request_data.user_data.full_name }}</p>
+        <div class="about">
+            <p class="card_about">{{ request_data.user_profile.about }}</p>
+        </div>
+
+        <input type="text" id="short_name_enc" name="short_name_enc" value="{{ request_data.user_data.short_name }}" class="hidden"/>
+        <input type="text" id="id_number_enc" name="id_number_enc" value="{{ request_data.user_data.search_id }}" class="hidden"/>
+
+        <div class="response_buttons">
+            <div class="decline_button">
+                <button type="submit" class="submit_button" id="submit-button" style="background-color: #f50100;">Decline</button>
+            </div>
+            <div class="accept_button">
+                <button type="submit" class="submit_button" id="submit-button" style="background-color: #00e800;">Accept</button>
+            </div>
+        </div>
+    </form>
+{% endfor %}
+</div>
+
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/friend_requests.js' %}"></script>
+{% endblock %}

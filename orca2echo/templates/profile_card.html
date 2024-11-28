@@ -1,6 +1,6 @@
 {% extends 'index_base.html' %}
 {% block title %}
-profile_card_{% if short_name %}{{ short_name }}{% endif %} | Orca
+Profile Card{% if short_name %}{{ short_name }}{% endif %} | Orca
 {% endblock %}
 
 {% block css %}
@@ -32,7 +32,6 @@ profile_card_{% if short_name %}{{ short_name }}{% endif %} | Orca
         </div>
         {% endif %}
     </form>
-    <div class="message">
 </div>
 {% else %}
 {% load static %}

@@ -67,3 +67,15 @@ if (themeSwitch) {
         localStorage.setItem("theme", selectedTheme);
     });
 }
+
+//   // Disable Developer tools
+//   // Disable Right-Click
+//   document.addEventListener('contextmenu', (e) => e.preventDefault());
+//   // Disable Keyboard Shortcuts
+//   document.addEventListener('keydown', (e) => {
+//     if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.shiftKey && e.key === 'J') || (e.ctrlKey && e.key === 'U')) {
+//       e.preventDefault();
+//       alert('Developer tools are disabled!');
+//     }
+//   });
+

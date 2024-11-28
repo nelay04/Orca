@@ -24,16 +24,16 @@
     </div>
 
     <div class="navbar-right">
-      <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="profile-img" href="/"/>
+      <img src="data:image/png;base64,{{ auth_user_info.base64_image }}" alt="image" class="profile-img" href="/"/>
     </div>
   </nav>
   <!-- Sidebar -->
   <div id="mySidebar" class="sidebar">
     <div class="sidebar-content">
       <div class="profile">
-        <img src="data:image/png;base64,{{ base64_image }}" alt="image" class="sidebar_img" />
-        {% if name %}
-        <p class="name">{{ name }}</p>
+        <img src="data:image/png;base64,{{ auth_user_info.base64_image }}" alt="image" class="sidebar_img" />
+        {% if auth_user_info.name %}
+        <p class="name">{{ auth_user_info.name }}</p>
         {% endif %}
       </div>
     </div>
@@ -42,9 +42,9 @@
     <div class="menu">
       <p>Connections and Requests</p>
       <a href="/add-friend"><i class="fa-solid fa-user-plus"></i>Add Friend</a>
-      <a href="/"><i class="fa-solid fa-user-edit"></i>Friend Requests</a>
+      <a href="/friend-requests"><i class="fa-solid fa-user-edit"></i>Friend Requests</a>
       <a href="/"><i class="fa-solid fa-user-friends"></i>Friends</a>
-      <a href="/"><i class="fa-solid fa-user-clock"></i>Sent Requests</a>
+      <a href="/sent-requests"><i class="fa-solid fa-user-clock"></i>Sent Requests</a>
 
     </div>
     <div class="underscore_partial"></div>

@@ -24,7 +24,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     'https://link.orca2echo.xyz',
-    'https://20ee-202-168-85-133.ngrok-free.app',
+    'https://ef71-202-168-85-77.ngrok-free.app',
 ]
 
 # Application definition
