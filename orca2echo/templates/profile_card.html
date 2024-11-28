@@ -25,6 +25,7 @@ Profile Card{% if short_name %}{{ short_name }}{% endif %} | Orca
 
         <input type="text" id="short_name_enc" name="short_name_enc" value={{short_name_enc}} class="hidden"/>
         <input type="text" id="id_number_enc" name="id_number_enc" value={{id_number_enc}} class="hidden"/>
+        <input type="text" id="from_sent_request" name="from_sent_request" value="0" class="hidden"/>
 
         {% if not its_me %}
         <div class="add_friend_button">

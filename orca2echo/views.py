@@ -1,53 +1,60 @@
-from django.shortcuts import render, HttpResponse, redirect  # type: ignore
-import requests
-from django.core.mail import send_mail  # type: ignore
-from .models import Otp
-import sys
-from django.contrib.auth.decorators import login_required, user_passes_test  # type: ignore
-from django.contrib.auth import authenticate, login, logout  # type: ignore
-from .models import UserData, UserProfile, FriendRequestList
-from datetime import datetime
+# Standard Library Imports
 import re
-from django.urls import reverse # type: ignore
-# from .models import  User
-from django.contrib.auth.models import User  # type: ignore
+import sys
 import time
+from datetime import datetime
+
+# Third-Party Library Imports
+import requests
+from django.contrib.auth import authenticate, login, logout  # type: ignore
+from django.contrib.auth.decorators import login_required, user_passes_test  # type: ignore
+from django.contrib.auth.models import User  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
+from django.core.mail import send_mail  # type: ignore
 from django.core.validators import validate_email  # type: ignore
 from django.http import Http404  # type: ignore
+from django.shortcuts import HttpResponse, redirect, render  # type: ignore
+from django.urls import reverse  # type: ignore
+
+# Local App Imports - Models
+from .models import FriendRequestList, Otp, UserData, UserProfile
+
+# Local App Imports - Services
 from .services.auth_service import (
-    generate_otp,
-    send_otp,
-    generate_username,
-    get_demo_img_text,
+    auth_user_data,
+    decrypt,
     generate_nanoseconds,
+    generate_otp,
     generate_search_id,
     generate_short_name,
-    normalize_full_name,
-    get_oops_img_text,
-    decrypt,
+    generate_username,
     get_current_time_ist,
-    auth_user_data,
+    get_demo_img_text,
+    get_oops_img_text,
+    normalize_full_name,
+    send_otp,
+    extract_first_name,
 )
 from .services.model_service import (
-    get_user_by_email,
-    retrieve_otp,
     add_otp,
-    get_user_by_username,
     delete_otp_by_email,
+    get_user_by_email,
+    get_user_by_username,
+    retrieve_otp,
 )
 from .services.mongo_service import (
-    update_fields_by_email,
+    find_all_objects,
+    find_an_object,
     get_user_data_by_email,
     get_user_data_by_user_name,
+    update_fields_by_email,
     update_fields_by_user_name,
-    find_an_object,
-    find_all_objects,
     update_objects,
 )
 
-# Create your views here.
 
+
+# Create your views here.
 
 @login_required(login_url="signin")
 def index(request):
@@ -86,15 +93,29 @@ def signin(request):
             validate_email(email)  # Validate email format
         except ValidationError:
             return render(
-                request, "signin.html", {"error": "Please enter a valid email address."}
+                request, "signin.html", {
+                    "error": "Please enter a valid email address."}
             )
+
+        # Find out name if available from mongodb
+        try:
+            searched_user_data = find_an_object(
+            collection_name="user_data",
+            search_criteria={
+                "email": email,
+            },
+            ) 
+            if searched_user_data:
+                name = searched_user_data.get("full_name")
+                name = " " + extract_first_name(name) #add a space before name
+        except:
+            name = ""
 
         # Generate OTP
         otp = generate_otp()
-        # print(otp)
 
         # Send OTP to email
-        send_otp(otp, email)
+        send_otp(otp, email, name)
 
         try:
             # Check if user exists
@@ -110,7 +131,8 @@ def signin(request):
                 # Update the password to OTP if the user exists
                 if_user.set_password(
                     otp
-                )  # `set_password` method will hash the password (OTP in this case)
+                    # `set_password` method will hash the password (OTP in this case)
+                )
                 if_user.save()  # Save the updated user
                 add_otp(email, otp)
                 username = if_user.username
@@ -161,20 +183,24 @@ def verify_otp(request):
         return redirect("orca")
     if request.method == "POST":
         entered_otp = request.POST.get("otp")  # Get OTP entered by the user
-        email = request.session.get("email")  # Retrieve the user ID from session
-        username = request.session.get("username")  # Retrieve the user ID from session
+        # Retrieve the user ID from session
+        email = request.session.get("email")
+        # Retrieve the user ID from session
+        username = request.session.get("username")
         original_otp = retrieve_otp(email)
         # sys.exit()
 
         if entered_otp == str(original_otp):
             # OTP is correct, proceed with logging in
             delete_otp_by_email(email)
-            user = get_user_data_by_email(collection_name="user_data", email=email)
+            user = get_user_data_by_email(
+                collection_name="user_data", email=email)
 
             if user.get("is_new_user"):
                 request.session["original_otp"] = original_otp
                 # Redirect to OTP page or render the OTP template
-                return render(request, "signup.html")  # Redirect to the home page
+                # Redirect to the home page
+                return render(request, "signup.html")
             else:
                 auth_user = authenticate(
                     request, username=username, password=original_otp, email=email
@@ -205,7 +231,8 @@ def user_logout(request):
 
 def signup(request):
     if request.method == "POST":
-        email = request.session.get("email")  # Retrieve the user data from session
+        # Retrieve the user data from session
+        email = request.session.get("email")
         username = request.session.get("username")
         search_id = request.session.get("search_id")
         original_otp = request.session.get("original_otp")
@@ -318,7 +345,7 @@ def add_friend(request):
     # get user data
     auth_user_info = auth_user_data(request)
 
-    # Handle add friend post request here  
+    # Handle add friend post request here
     if request.method == "POST":
         # get receiver data and decrypt
         receiver_short_name_enc = request.POST.get("short_name_enc")
@@ -326,7 +353,7 @@ def add_friend(request):
         receiver_short_name = decrypt(receiver_short_name_enc)
         receiver_id_number = decrypt(receiver_id_number_enc)
 
-        # get receiver data from user_data table 
+        # get receiver data from user_data table
         searched_receiver_data = find_an_object(
             collection_name="user_data",
             search_criteria={
@@ -371,15 +398,16 @@ def add_friend(request):
                 request_count=1,
             )
             result = new_request_object.save()
-        
+
         # redirect to profile card page
-        redirect_url = reverse('search-profile') + f'?short-name={receiver_short_name_enc}&id-number={receiver_id_number_enc}'
+        redirect_url = reverse('search-profile') + f'?short-name={
+            receiver_short_name_enc}&id-number={receiver_id_number_enc}'
         response = redirect(redirect_url)
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'
         response['Expires'] = '0'
         return response
-    
+
     else:
         # Search-for-user form
         return render(
@@ -395,16 +423,16 @@ def add_friend(request):
 def search_profile(request):
     # handle profile card view
     if request.method == "GET":
-        # get cncrypted short-name and id-number and decrypt 
+        # get cncrypted short-name and id-number and decrypt
         short_name_enc = request.GET.get("short-name", "").strip()
         id_number_enc = request.GET.get("id-number", "").strip()
         short_name = decrypt(short_name_enc)
         id_number = decrypt(id_number_enc)
-    
+
         # get user data
         auth_user_info = auth_user_data(request)
 
-        # get receiver data from user_data table 
+        # get receiver data from user_data table
         searched_user_data = find_an_object(
             collection_name="user_data",
             search_criteria={
@@ -432,10 +460,10 @@ def search_profile(request):
         # name of searched user
         searched_name = searched_user_data.get("full_name")
 
-        #identfy if user is searching himself then hide action buttons.
+        # identfy if user is searching himself then hide action buttons.
         its_me = request.user.username == searched_user_data.get("user_name")
 
-        # get profile data from user_data table 
+        # get profile data from user_data table
         searched_user_profile_data = find_an_object(
             collection_name="user_profile",
             search_criteria={
@@ -443,7 +471,8 @@ def search_profile(request):
             },
         )
         # Profile image base64 string, about, gender of searched user
-        searched_base64_string = searched_user_profile_data.get("profile_picture")
+        searched_base64_string = searched_user_profile_data.get(
+            "profile_picture")
         searched_about = searched_user_profile_data.get("about")
         searched_gender = searched_user_data.get("gender")
 
@@ -509,11 +538,23 @@ def search_profile(request):
 def cancel_request(request):
     # handle cancel friend request
     if request.method == "POST":
-        # get cncrypted short-name and id-number and decrypt 
-        receiver_short_name_enc = request.POST.get("short_name_enc")
-        receiver_id_number_enc = request.POST.get("id_number_enc")
-        receiver_short_name = decrypt(receiver_short_name_enc)
-        receiver_id_number = decrypt(receiver_id_number_enc)
+
+        from_sent_request =request.POST.get("from_sent_request")
+
+        if from_sent_request == '0':
+            # get cncrypted short-name and id-number and decrypt
+            receiver_short_name_enc = request.POST.get("short_name_enc")
+            receiver_id_number_enc = request.POST.get("id_number_enc")
+            receiver_short_name = decrypt(receiver_short_name_enc)
+            receiver_id_number = decrypt(receiver_id_number_enc)
+            # show profile card accourding to current relation and allowed action
+            redirect_url = reverse('search-profile') + f'?short-name={
+                receiver_short_name_enc}&id-number={receiver_id_number_enc}'
+        elif from_sent_request == '1':
+            receiver_short_name = request.POST.get("short_name_enc")
+            receiver_id_number = request.POST.get("id_number_enc")
+            # show profile card accourding to current relation and allowed action
+            redirect_url = reverse('sent-requests')
 
         # get current user data
         auth_user_info = auth_user_data(request)
@@ -540,7 +581,7 @@ def cancel_request(request):
         if if_friend_request:
             # check if request is active
             if if_friend_request.get("is_active") is True:
-                # deactivate status and cancel request 
+                # deactivate status and cancel request
                 update_result = update_objects(
                     collection_name="friend_request_list",
                     search_criteria={
@@ -556,13 +597,13 @@ def cancel_request(request):
                     },
                 )
 
-        # show profile card accourding to current relation and allowed action
-        redirect_url = reverse('search-profile') + f'?short-name={receiver_short_name_enc}&id-number={receiver_id_number_enc}'
+        # redirect
         response = redirect(redirect_url)
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'
         response['Expires'] = '0'
         return response
+
 
 @login_required(login_url="signin")
 def friend_requests(request):
@@ -582,13 +623,15 @@ def friend_requests(request):
         # Fetch user data for the sender of the friend request
         searched_user_data = find_an_object(
             collection_name="user_data",
-            search_criteria={"user_name": friend_request.get("user_name_sender")},
+            search_criteria={
+                "user_name": friend_request.get("user_name_sender")},
         )
 
         # Fetch user profile for the sender of the friend request
         searched_user_profile = find_an_object(
             collection_name="user_profile",
-            search_criteria={"user_name": friend_request.get("user_name_sender")},
+            search_criteria={
+                "user_name": friend_request.get("user_name_sender")},
         )
 
         # If both user data and profile are found, append to the result list
@@ -625,7 +668,8 @@ def friend_requests(request):
 
     context = {
         "friend_request_data": friend_request_data,
-        "its_me": False,  # You can add a logic here to determine if the user is the sender of the request
+        # You can add a logic here to determine if the user is the sender of the request
+        "its_me": False,
         "name": "nk",
         "auth_user_info": auth_user_info,
     }
@@ -634,7 +678,7 @@ def friend_requests(request):
 
 @login_required(login_url="signin")
 def sent_requests(request):
-     # Fetch all active friend requests for the logged-in user
+    # Fetch all active friend requests for the logged-in user
     all_friend_request = find_all_objects(
         collection_name="friend_request_list",
         search_criteria={
@@ -650,13 +694,15 @@ def sent_requests(request):
         # Fetch user data for the sender of the friend request
         searched_user_data = find_an_object(
             collection_name="user_data",
-            search_criteria={"user_name": friend_request.get("user_name_receiver")},
+            search_criteria={
+                "user_name": friend_request.get("user_name_receiver")},
         )
 
         # Fetch user profile for the sender of the friend request
         searched_user_profile = find_an_object(
             collection_name="user_profile",
-            search_criteria={"user_name": friend_request.get("user_name_receiver")},
+            search_criteria={
+                "user_name": friend_request.get("user_name_receiver")},
         )
 
         # If both user data and profile are found, append to the result list
@@ -693,8 +739,10 @@ def sent_requests(request):
 
     context = {
         "friend_request_data": friend_request_data,
-        "its_me": False,  # You can add a logic here to determine if the user is the sender of the request
+        # You can add a logic here to determine if the user is the sender of the request
+        "its_me": False,
         "name": "nk",
         "auth_user_info": auth_user_info,
     }
-    return render(request, "friend_requests.html", context)
+    return render(request, "sent_requests.html", context)
+

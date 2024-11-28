@@ -179,3 +179,15 @@
     margin-left: 38%;
     margin-top: 1%;
 }
+
+.otpMessage,
+.resendMessage{
+    color: white;
+    text-align: center;
+    font-weight: 300;
+}
+
+#refreshLink{
+    text-decoration: underline;
+    text-underline-offset: 4px; /* Moves the underline slightly lower */
+}

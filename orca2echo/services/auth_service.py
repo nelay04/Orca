@@ -54,27 +54,29 @@ def generate_otp():
     return f"{otp:06d}"  # Formats the number to be 6 digits with leading zeros
 
 
-def send_otp(otp, email):
-    # Define the context for rendering the template
-    context = {
-        "otp": otp,
-        "brand_name": "Orca",
-        "address_line1": "123 Elf Road, 88888",
-        "address_line2": "North Pole",
-    }
 
-    # Render the HTML template
-    html_message = render_to_string("otp_email_template.html", context)
-    plain_message = strip_tags(html_message)  # Generate plain text version if needed
 
-    send_mail(
-        otp,  # Subject of the email
-        plain_message,  # Plain text content (optional fallback)
-        "coffeecold97@gmail.com",  # Sender's email address
-        [email],  # List of recipient email addresses
-        fail_silently=False,
-        html_message=html_message,  # HTML content of the email
-    )
+def extract_first_name(name: str) -> str:
+    """
+    Extracts the first name from a given name.
+    If the name has only one word, returns the entire name.
+    If the input is blank or contains only whitespace, returns an empty string.
+    
+    Args:
+        name (str): The full name of the person.
+    
+    Returns:
+        str: The first name, full name (if only one word), or an empty string for blank input.
+    """
+    # Strip whitespace and check if the name is blank
+    if not name.strip():
+        return ""
+    
+    # Split the name into words
+    name_parts = name.strip().split()
+    
+    # Return the first part of the name
+    return name_parts[0]
 
 
 def get_current_time_ist():
@@ -97,6 +99,29 @@ def generate_nanoseconds():
 
     return search_id
 
+def send_otp(otp, email, name):
+    # Define the context for rendering the template
+    context = {
+        "name":name,
+        "otp": otp,
+        "brand_name": "Orca",
+        "dated": get_current_time_ist(),
+        "address_line1": "123 Elf Road, 88888",
+        "address_line2": "North Pole",
+    }
+
+    # Render the HTML template
+    html_message = render_to_string("otp_email_template.html", context)
+    plain_message = strip_tags(html_message)  # Generate plain text version if needed
+
+    send_mail(
+        otp,  # Subject of the email
+        plain_message,  # Plain text content (optional fallback)
+        "coffeecold97@gmail.com",  # Sender's email address
+        [email],  # List of recipient email addresses
+        fail_silently=False,
+        html_message=html_message,  # HTML content of the email
+    )
 
 def generate_search_id(nanoseconds):
     # Extract the middle portion by omitting the first 4 and last 6 digits

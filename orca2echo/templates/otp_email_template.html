@@ -1,9 +1,9 @@
-<div style="font-family: Helvetica, Arial, sans-serif; max-width: 100%; padding: 20px; box-sizing: border-box; background-color: #f9f9f9;">
+<div style="font-family: Helvetica, Arial, sans-serif; max-width: 100%; padding: 20px; box-sizing: border-box; background-color: rgba(122, 111, 205,0.15);">
     <div style="margin: 0 auto; max-width: 600px; background-color: #ffffff; padding: 25px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 8px;">
         <div style="border-bottom: 1px solid #eeeeee; padding-bottom: 15px;">
-            <a href="#" style="font-size: 1.75em; color: #00466a; text-decoration: none; font-weight: 700;">{{ brand_name }}</a>
+            <a href="#" style="font-size: 1.75em; color: #7a6fcd; text-decoration: none; font-weight: 700;">{{ brand_name }}</a>
         </div>
-        <p style="font-size: 1.25em; margin: 20px 0; color: #333;">Hi,</p>
+        <p style="font-size: 1.25em; margin: 20px 0; color: #333;">Hi{{name}},</p>
         <p style="font-size: 1.125em; margin: 18px 0; color: #555;">
             Thank you for using {{ brand_name }}. Use the following OTP to complete your Sign In procedure. The OTP is valid for 5 minutes.
         </p>
@@ -14,6 +14,7 @@
         <hr style="border: none; border-top: 1px solid #eeeeee; margin: 20px 0;" />
         <div style="color: #aaa; font-size: 0.95em; line-height: 1.6;">
             <p style="margin: 5px 0;">{{ brand_name }}</p>
+            <p style="margin: 5px 0;">{{ dated }} IST</p>
             <p style="margin: 5px 0;">{{ address_line1 }}</p>
             <p style="margin: 5px 0;">{{ address_line2 }}</p>
         </div>

@@ -84,26 +84,43 @@
     color: rgba(70, 65, 65, 0.484);
 }
 
+/* Customize scrollbar width */
 .about {
-    width: 85%;
-    margin: 10px;                /* Add space around the container */
-    padding-bottom: 10px;               /* Add space inside the container */
-    padding-left: 10px;               /* Add space inside the container */
-    padding-right: 10px;               /* Add space inside the container */
-    background-color: var(--about-box-bg);   /* Light background color for contrast */
-    border-left: 4px solid #ffc107; /* Highlight with a decorative border */
-    border-radius: 10px;         /* Smoothen the edges */
-    box-shadow: 0 2px 4px var(--about-box-shadow); /* Add a subtle shadow */
+  width: 85%;
+  margin: 10px;
+  padding-bottom: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  background-color: #f4f4f4;
+  border-left: 4px solid #ffc107;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  height: 110px;
+  overflow-y: auto;
+}
+.card_about {
+  font-size: 1em !important;    /* Slightly larger font size */
+  font-family: 'Georgia', serif; /* Use a serif font for elegance */
+  color: #333333;               /* Darker text color for readability */
+  line-height: 1.25;            /* Increase line spacing for better readability */
+  text-align: justify;          /* Align text evenly on both sides */
+  margin: 0;                    /* Remove default margins for paragraph */
+}
+/* Customize scrollbar */
+.about::-webkit-scrollbar {
+  width: 2px; /* Set the width of the scrollbar */
 }
 
-.card_about {
-    font-size: 1em !important;            /* Slightly larger font size */
-    font-family: 'Georgia', serif; /* Use a serif font for elegance */
-    color: var(--text-color);             /* Darker text color for readability */
-    line-height: 1.25;            /* Increase line spacing for better readability */
-    text-align: justify;         /* Align text evenly on both sides */
-    margin: 0;                   /* Remove default margins for paragraph */
+.about::-webkit-scrollbar-track {
+  background-color: transparent; /* Color of the track (background of the scrollbar) */
+  border-radius:  none; /* Rounded corners for the track */
 }
+
+.about::-webkit-scrollbar-thumb {
+  border-radius: 10px; /* Rounded corners for the thumb */
+  border: 3px solid #ffc107; /* Optional: border around the thumb to make it stand out */
+}
+
 
 .submit_button {
     width: 60vw;

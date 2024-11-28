@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}
-  OTP Verification | Orca
+OTP Verification | Orca
 {% endblock %}
 
 {% block css %}
-  {% load static %}
-  <link rel="stylesheet" href="{% static 'css/otp.css' %}" />
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/otp.css' %}" />
 {% endblock %}
 
 {% block body %}
@@ -23,7 +23,8 @@
                     <label for="otp">Enter OTP</label>
                     <div class="otp_input_container">
                         {% for i in "123456" %}
-                            <input type="text" class="otp_input" maxlength="1" pattern="[0-9]*" inputmode="numeric" required />
+                        <input type="text" class="otp_input" maxlength="1" pattern="[0-9]*" inputmode="numeric"
+                            required />
                         {% endfor %}
                         <input type="hidden" id="otp" name="otp" />
                         <span class="icon"><i class="fa-solid fa-key"></i></span>
@@ -31,7 +32,7 @@
                 </div>
 
                 {% if error_message %}
-                    <p class="error">{{ error_message }}</p>
+                <p class="error">{{ error_message }}</p>
                 {% endif %}
 
                 <div class="form_group">
@@ -39,6 +40,12 @@
                     <button type="submit" class="submit_button" id="submit-button">Verify</button>
                 </div>
             </form>
+            <p id="otpMessage" class="otpMessage">Didn't receive the OTP?<br> Resend in <span id="timer">10</span> seconds.</p>
+            <p id="resendMessage" class="resendMessage" style="display: none;">Didn't receive the OTP? <span id="refreshLink"
+                    onclick="window.location.reload()"
+                    style="cursor: pointer; color: blue; text-decoration: underline; pointer-events: none;"> Resend</span>.
+            </p>
+
         </div>
     </div>
 </div>
