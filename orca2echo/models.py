@@ -7,6 +7,7 @@ from bson import ObjectId  # type: ignore
 user_data = db["user_data"]
 user_profile = db["user_profile"]
 friend_request_list = db["friend_request_list"]
+friend_list = db["friend_list"]
 # Create your models here.
 
 
@@ -139,6 +140,48 @@ class FriendRequestList:
         }
         try:
             result = friend_request_list.insert_one(
+                friend_request_document
+            )  # Insert the user document into the 'user_data' collection
+            return result.inserted_id  # Return the ID of the newly inserted document
+        except errors.DuplicateKeyError:
+            return False
+
+
+
+
+
+
+
+
+
+class FriendList:
+    def __init__(
+        self,
+        user_1: str = None,
+        user_2: str = None,
+        is_active: bool = True,
+        created_at: str = None,
+        updated_at: str = None,
+        metadata: dict = None,    # Additional friendship details
+    ):
+        self.user_1 = user_1
+        self.user_2 = user_2
+        self.is_active = is_active
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.metadata = metadata
+
+    def save(self):
+        friend_request_document = {  # Create a dictionary for the user data
+            "user_1": self.user_1,
+            "user_2": self.user_2,
+            "is_active": self.is_active,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "metadata": self.metadata,
+        }
+        try:
+            result = friend_list.insert_one(
                 friend_request_document
             )  # Insert the user document into the 'user_data' collection
             return result.inserted_id  # Return the ID of the newly inserted document

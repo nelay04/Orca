@@ -24,6 +24,7 @@
     --gr: #666666;
     --tr: all 0.5s ease 0s;
     --lg: var(--of);
+    --nav-p-color: rgba(147, 137, 230, 1);
 }
 
 /* Dark Mode Variables */
@@ -38,6 +39,7 @@
     --danger-color: rgb(255, 0, 0);
     --danger-p-color: rgba(255, 0, 0, 0.5);
     --overlay-color: rgba(137, 119, 207, 0.1);
+    --nav-p-color: rgba(97, 87, 220, 1);
 }
 
 /* Applying Variables */
@@ -336,4 +338,9 @@ label[for=btn] {
     /* Align vertically */
     gap: 15px;
     /* Add space between the label and toggle */
+}
+
+.nav_header{
+    font-size: 1.15rem;
+    color: var(--nav-p-color);
 }

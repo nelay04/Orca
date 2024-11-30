@@ -57,17 +57,6 @@ def get_user_data_by_email(collection_name: str, email: str):
         return None
 
 
-def get_user_data_by_user_name(collection_name: str, user_name: str):
-    try:
-        collection = db[collection_name]
-
-        # Fetch the user document by email
-        return collection.find_one({"user_name": user_name})
-    except Exception as e:
-        print(f"Error fetching user by user_name: {e}")
-        return None
-
-
 def get_user_by_id(
     collection_name: str, user_id: str
 ):  # Retrieve a user document by id.
@@ -78,6 +67,13 @@ def get_user_by_id(
     except Exception as e:
         print(f"Error: {e}")
         return None
+
+
+
+
+
+
+# These functions are for any collection except friend_list      >>>----------------------------------------------------------------->
 
 
 def find_an_object(collection_name: str, search_criteria: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -187,3 +183,90 @@ def update_objects(
         # Log the error
         print(f"Error occurred while updating objects in collection '{collection_name}': {e}")
         return None
+
+
+
+
+# These functions are only for friend_list      >>>----------------------------------------------------------------->
+
+
+def find_friendship(user1: str, user2: str) -> Optional[Dict[str, Any]]:
+    """
+    Search for a friendship in the `friend_list` collection where `user1` and `user2`
+    exist as either user1_id or user2_id, in any order.
+
+    Args:
+        user1 (str): The first user ID.
+        user2 (str): The second user ID.
+
+    Returns:
+        dict | None: The found friendship document or None if no document is found.
+
+    Example:
+        friendship = find_friendship("user1_unique_id", "user2_unique_id")
+    """
+    try:
+        friend_list_collection = db["friend_list"]  # Replace with your collection name
+
+        # Search criteria for either (user1_id=user1 AND user2_id=user2) or (user1_id=user2 AND user2_id=user1)
+        search_criteria = {
+            "$or": [
+                {"user_1": user1, "user_2": user2},
+                {"user_1": user2, "user_2": user1},
+            ]
+        }
+
+        # Find the friendship document
+        friendship = friend_list_collection.find_one(search_criteria)
+        return friendship
+    except Exception as e:
+        # Log the error (replace print with proper logging in production)
+        print(f"Error occurred while searching for friendship: {e}")
+        return None
+    
+
+
+
+from typing import List
+
+def find_friend_users(user_id: str) -> List[str]:
+    """
+    Find all users who are friends with the given user ID in the `friend_list` collection.
+
+    Args:
+        user_id (str): The user ID to search for.
+
+    Returns:
+        List[str]: A list of user IDs who are friends with the given user.
+
+    Example:
+        friends = find_friend_users("user_unique_id")
+    """
+    try:
+        friend_list_collection = db["friend_list"]  # Replace with your collection name
+
+        # Search criteria for user_id matching either user_1 or user_2
+        search_criteria = {
+            "$or": [
+                {"user_1": user_id},
+                {"user_2": user_id},
+            ]
+        }
+
+        # Find all matching friendship documents
+        friendships = friend_list_collection.find(search_criteria)
+
+        # Extract the other user from each friendship
+        friend_users = []
+        for friendship in friendships:
+            if friendship["user_1"] == user_id:
+                friend_users.append(friendship["user_2"])
+            elif friendship["user_2"] == user_id:
+                friend_users.append(friendship["user_1"])
+
+        return friend_users
+    except Exception as e:
+        # Log the error (replace print with proper logging in production)
+        print(f"Error occurred while searching for friends: {e}")
+        return []
+

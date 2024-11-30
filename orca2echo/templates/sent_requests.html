@@ -9,6 +9,9 @@ Sent Requests
 <link rel="stylesheet" href="{% static 'css/sent_requests.css' %}" />
 {% endblock %}
 
+{% block page %}Sent Requests{% endblock %}
+
+
 {% block body %}
 
 
@@ -16,7 +19,7 @@ Sent Requests
 {% for request_data in friend_request_data %}
     <form method="POST" action="/cancel-request" id="add-friend-req-form" class="card_body">
         {% csrf_token %}
-        <div class="gender"><i class="fa-solid {{ request_data.user_profile.gender_icon_string }}"></i></div>
+        <div class="gender"><i class="fa-solid {{ request_data.user_data.gender_icon_string }}"></i></div>
         <img src="data:image/png;base64,{{ request_data.user_profile.profile_picture }}" alt="image" class="card_img" />
         <p class="card_name">{{ request_data.user_data.full_name }}</p>
         <div class="about">

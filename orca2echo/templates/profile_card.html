@@ -8,6 +8,8 @@ Profile Card{% if short_name %}{{ short_name }}{% endif %} | Orca
 <link rel="stylesheet" href="{% static 'css/profile_card.css' %}" />
 {% endblock %}
 
+{% block page %}{{searched_name}}{% endblock %}
+
 {% block body %}
 
 

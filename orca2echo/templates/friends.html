@@ -1,15 +1,15 @@
 {% extends 'index_base.html' %}
 {% block title %}
-Friend Requests
+Friends
 {% if short_name %}{{ short_name }}{% endif %} | Orca
 {% endblock %}
 
 {% block css %}
 {% load static %}
-<link rel="stylesheet" href="{% static 'css/friend_requests.css' %}" />
+<link rel="stylesheet" href="{% static 'css/friends.css' %}" />
 {% endblock %}
 
-{% block page %}Friend Requests{% endblock %}
+{% block page %}Friends{% endblock %}
 
 
 {% block body %}
@@ -17,7 +17,7 @@ Friend Requests
 
 <div class="card_container">
 {% for request_data in friend_request_data %}
-    <form method="POST" action="/response" id="add-friend-req-form" class="card_body">
+    <form method="POST" action="/cancel-request" id="add-friend-req-form" class="card_body">
         {% csrf_token %}
         <div class="gender"><i class="fa-solid {{ request_data.user_data.gender_icon_string }}"></i></div>
         <img src="data:image/png;base64,{{ request_data.user_profile.profile_picture }}" alt="image" class="card_img" />
@@ -28,14 +28,10 @@ Friend Requests
 
         <input type="text" id="short_name_enc" name="short_name_enc" value="{{ request_data.user_data.short_name }}" class="hidden"/>
         <input type="text" id="id_number_enc" name="id_number_enc" value="{{ request_data.user_data.search_id }}" class="hidden"/>
+        <input type="text" id="from_sent_request" name="from_sent_request" value="1" class="hidden"/>
 
-        <div class="response_buttons">
-            <div class="decline_button">
-                <button type="submit" class="submit_button"  name="response" value="decline" id="submit-button" style="background-color: #f50100;">Decline</button>
-            </div>
-            <div class="accept_button">
-                <button type="submit" class="submit_button"  name="response" value="accept" id="submit-button" style="background-color: #00e800;">Accept</button>
-            </div>
+        <div class="add_friend_button">
+            <button type="submit" class="submit_button" id="submit-button">Cancel Requests</button>
         </div>
     </form>
 {% endfor %}
@@ -44,5 +40,5 @@ Friend Requests
 {% endblock %}
 
 {% block js %}
-<script src="{% static 'js/friend_requests.js' %}"></script>
+<script src="{% static 'js/friends.js' %}"></script>
 {% endblock %}

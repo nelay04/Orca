@@ -9,7 +9,8 @@ import time
 import os
 from django.conf import settings  # type: ignore
 import base64
-import pytz
+import pytz # type: ignore
+import re
 from .mongo_service import (
     find_an_object,
 )
@@ -79,14 +80,16 @@ def extract_first_name(name: str) -> str:
     return name_parts[0]
 
 
+
 def get_current_time_ist():
     # Set timezone to IST (Indian Standard Time)
     ist = pytz.timezone("Asia/Kolkata")
-    # Get current time in UTC and convert to IST
+    # Get current time in IST
     current_time = datetime.now(ist)
-    # Format the current time as "DD-MM-YYYY HH:MM:SS"
-    formatted_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
+    # Format the current time as "DD-MM-YYYY HH:MM:SS.milliseconds"
+    formatted_time = current_time.strftime("%d-%m-%Y %H:%M:%S:") + str(current_time.microsecond // 1000).zfill(3)
     return formatted_time
+
 
 
 def generate_nanoseconds():
@@ -145,13 +148,29 @@ def generate_search_id(nanoseconds):
 
 
 def generate_username(email, nanosecond):
+    """
+    Generate a username by extracting the prefix from the email and appending nanoseconds.
+    Removes special characters and numbers from the prefix.
+
+    Args:
+        email (str): The user's email address.
+        nanosecond (int): A nanosecond value to ensure uniqueness.
+
+    Returns:
+        str: The generated username.
+    """
     # Step 1: Extract the part before '@' from the email
     username_prefix = email.split("@")[0]
 
-    # Step 4: Combine the prefix, current time, and nanoseconds to form the username
-    username = f"{username_prefix}{nanosecond}"
+    # Step 2: Remove special characters and numbers
+    clean_prefix = re.sub(r"[^a-zA-Z]", "", username_prefix)
 
+    # Step 3: Combine the cleaned prefix and nanoseconds to form the username
+    username = f"{clean_prefix}{nanosecond}"
+    print(username)
     return username
+
+
 
 
 def get_demo_img_text(gender):
