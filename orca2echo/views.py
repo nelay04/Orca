@@ -22,7 +22,8 @@ from .models import FriendRequestList, Otp, UserData, UserProfile, FriendList
 # Local App Imports - Services
 from .services.auth_service import (
     auth_user_data,
-    decrypt,
+    base64_decrypt,
+    base64_encrypt,
     generate_nanoseconds,
     generate_otp,
     generate_search_id,
@@ -110,7 +111,7 @@ def signin(request):
                 # add a space before name
                 name = " " + extract_first_name(name)
         except:
-            name = ""
+            name = " user"
 
         # Generate OTP
         otp = generate_otp()
@@ -351,8 +352,8 @@ def add_friend(request):
         # get receiver data and decrypt
         receiver_short_name_enc = request.POST.get("short_name_enc")
         receiver_id_number_enc = request.POST.get("id_number_enc")
-        receiver_short_name = decrypt(receiver_short_name_enc)
-        receiver_id_number = decrypt(receiver_id_number_enc)
+        receiver_short_name = base64_decrypt(receiver_short_name_enc)
+        receiver_id_number = base64_decrypt(receiver_id_number_enc)
 
         # get receiver data from user_data table
         searched_receiver_data = find_an_object(
@@ -428,8 +429,8 @@ def search_profile(request):
         # get cncrypted short-name and id-number and decrypt
         short_name_enc = request.GET.get("short-name", "").strip()
         id_number_enc = request.GET.get("id-number", "").strip()
-        short_name = decrypt(short_name_enc)
-        id_number = decrypt(id_number_enc)
+        short_name = base64_decrypt(short_name_enc)
+        id_number = base64_decrypt(id_number_enc)
 
         # get user data
         auth_user_info = auth_user_data(request)
@@ -547,8 +548,8 @@ def cancel_request(request):
             # get cncrypted short-name and id-number and decrypt
             receiver_short_name_enc = request.POST.get("short_name_enc")
             receiver_id_number_enc = request.POST.get("id_number_enc")
-            receiver_short_name = decrypt(receiver_short_name_enc)
-            receiver_id_number = decrypt(receiver_id_number_enc)
+            receiver_short_name = base64_decrypt(receiver_short_name_enc)
+            receiver_id_number = base64_decrypt(receiver_id_number_enc)
             # show profile card accourding to current relation and allowed action
             redirect_url = reverse('search-profile') + f'?short-name={
                 receiver_short_name_enc}&id-number={receiver_id_number_enc}'
@@ -879,27 +880,27 @@ def response(request):
 
 @login_required(login_url="signin")
 def friends(request):
+    base_url = request.build_absolute_uri('/').rstrip('/')
     # Fetch all active friend requests for the logged-in user
     friends = find_friend_users(request.user.username)
-    print(friends)
+    print(friends)# Sort the list alphabetically
 
     friends_data = []
 
     # Loop through all the friend requests to gather user data and profile information
     for friend in friends:
-        print(friend)
         # Fetch user data for the sender of the friend request
         searched_user_data = find_an_object(
             collection_name="user_data",
             search_criteria={
-                "user_name": friend},
+                "user_name": friend['user_name']},
         )
 
         # Fetch user profile for the sender of the friend request
         searched_user_profile = find_an_object(
             collection_name="user_profile",
             search_criteria={
-                "user_name": friend},
+                "user_name": friend['user_name']},
         )
 
         # If both user data and profile are found, append to the result list
@@ -911,8 +912,9 @@ def friends(request):
                 gender_icon_string = "fa-venus"
             else:
                 gender_icon_string = "fa-mars-and-venus"
+
             friends_data.append(
-                {
+                {"base_url":base_url,
                     "user_data": {
                         "_id": str(
                             searched_user_data["_id"]
@@ -924,6 +926,8 @@ def friends(request):
                         "gender": searched_user_data["gender"],
                         "short_name": searched_user_data["short_name"],
                         "search_id": searched_user_data["search_id"],
+                        "search_id_enc": base64_encrypt(searched_user_data["search_id"]),
+                        "short_name_enc": base64_encrypt(searched_user_data["short_name"]),
                         "is_active": searched_user_data["is_active"],
                         "is_new_user": searched_user_data["is_new_user"],
                         "gender_icon_string": gender_icon_string,

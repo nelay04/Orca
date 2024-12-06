@@ -227,29 +227,27 @@ def find_friendship(user1: str, user2: str) -> Optional[Dict[str, Any]]:
 
 
 
-from typing import List
 
-def find_friend_users(user_id: str) -> List[str]:
+def find_friend_users(user_name: str) -> List[dict]:
     """
     Find all users who are friends with the given user ID in the `friend_list` collection.
+    Fetch the corresponding full name from the `user_data` collection and sort the friends by full name alphabetically.
 
     Args:
-        user_id (str): The user ID to search for.
+        user_name (str): The user ID to search for.
 
     Returns:
-        List[str]: A list of user IDs who are friends with the given user.
-
-    Example:
-        friends = find_friend_users("user_unique_id")
+        List[dict]: A list of dictionaries containing the user IDs and full names of friends, sorted by full name.
     """
     try:
         friend_list_collection = db["friend_list"]  # Replace with your collection name
+        user_data_collection = db["user_data"]  # Replace with your collection name for user data
 
-        # Search criteria for user_id matching either user_1 or user_2
+        # Search criteria for user_name matching either user_1 or user_2
         search_criteria = {
             "$or": [
-                {"user_1": user_id},
-                {"user_2": user_id},
+                {"user_1": user_name},
+                {"user_2": user_name},
             ]
         }
 
@@ -259,14 +257,29 @@ def find_friend_users(user_id: str) -> List[str]:
         # Extract the other user from each friendship
         friend_users = []
         for friendship in friendships:
-            if friendship["user_1"] == user_id:
+            if friendship["user_1"] == user_name:
                 friend_users.append(friendship["user_2"])
-            elif friendship["user_2"] == user_id:
+            elif friendship["user_2"] == user_name:
                 friend_users.append(friendship["user_1"])
 
-        return friend_users
+        # Fetch full name of each friend from the user_data collection
+        friends_with_full_name = []
+        for friend_id in friend_users:
+            user_data = user_data_collection.find_one({"user_name": friend_id})
+            if user_data:
+                friends_with_full_name.append({
+                    "user_name": friend_id,
+                    "full_name": user_data["full_name"]
+                })
+
+        # Sort friends by full name alphabetically
+        friends_with_full_name.sort(key=lambda x: x["full_name"])
+
+        return friends_with_full_name
+
     except Exception as e:
         # Log the error (replace print with proper logging in production)
         print(f"Error occurred while searching for friends: {e}")
         return []
+
 

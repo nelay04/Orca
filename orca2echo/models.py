@@ -1,5 +1,4 @@
 from django.db import models  # type: ignore
-from django.db import models  # type: ignore
 from db_connection import db
 from pymongo import errors  # type: ignore
 from bson import ObjectId  # type: ignore

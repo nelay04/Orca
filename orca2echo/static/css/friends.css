@@ -10,8 +10,6 @@
     --card-bg-color: #d6d6d6;
     --text-color: rgb(51, 51, 51);
     --card-box-shadow: rgba(0, 0, 0, 0.24);
-    --about-box-shadow: rgba(0, 0, 0, 0.1);
-    --about-box-bg: rgb(248, 249, 250);
 }
 
 /* Dark Mode Variables */
@@ -20,8 +18,6 @@
     ;
     --text-color: rgb(255, 255, 255);
     --card-box-shadow: rgba(255, 255, 255, 0.24);
-    --about-box-shadow: rgba(255, 255, 255, 0.1);
-    --about-box-bg: rgb(3, 21, 38);
 
 }
 
@@ -34,124 +30,58 @@
     flex-direction: column;
     /* justify-content: center; */
     align-items: center;
-    gap: 5vh;
-    padding-top: 10vh;
+    gap: 2.5vh;
+    padding-top: 6vh;
     padding-bottom: 5vh;
     user-select: none;
 }
 
 .card_body {
-    width: 75vw;
-    height: 48.50vh;
+    width: 80vw;
+    height: 10vh;
     background-color: var(--bg-color);
     border-radius: 0px 15px 0px 15px;
     box-shadow: var(--card-box-shadow) 0px 3px 8px;
     display: flex;
-    flex-direction: column;
+    /* flex-direction: column; */
     align-items: center;
 }
 
 .card_img {
-    width: 100px;
-    height: 100px;
+    margin-left: 1vw;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
     object-fit: cover;
 }
 
-.card_body p {
-    padding-top: 1.5vh;
-    font-size: 1.25rem;
+.card_name{
+    padding-left: 2.5vw;
+    font-size: 1.4rem;
     font-weight: 400;
 }
 
 .gender {
-    height: 5vh;
-    display: flex;
-    /* Set the container to flexbox */
-    align-items: center;
-    /* Vertically center the content */
-    justify-content: flex-end;
-    /* Align the content (icon) to the right */
-    width: 100%;
-    padding-right: 5vw;
-    padding-top: 3.5vh;
+margin-top: -6vh;
 }
 
 .fa-mars {
-    font-size: 2.5rem;
+    margin-left: 1.5vw;
+    font-size: 1.4rem;
     color: rgb(0, 0, 255);
 }
 
 .fa-venus {
-    font-size: 2.5rem;
+    margin-left: 1.25vw;
+    font-size: 1.4rem;
     color: rgb(255, 0, 255);
 }
 
 .fa-mars-and-venus {
-    font-size: 2.5rem;
+    margin-left: 1vw;
+    font-size: 1.4rem;
     color: rgba(70, 65, 65, 0.484);
 }
-
-/* Customize scrollbar width */
-.about {
-    width: 85%;
-    margin: 10px;
-    padding-bottom: 10px;
-    padding-left: 10px;
-    padding-right: 10px;
-    background-color: #f4f4f4;
-    border-left: 4px solid #ffc107;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    height: 110px;
-    overflow-y: auto;
-  }
-  .card_about {
-    font-size: 1em !important;    /* Slightly larger font size */
-    font-family: 'Georgia', serif; /* Use a serif font for elegance */
-    color: #333333;               /* Darker text color for readability */
-    line-height: 1.25;            /* Increase line spacing for better readability */
-    text-align: justify;          /* Align text evenly on both sides */
-    margin: 0;                    /* Remove default margins for paragraph */
-  }
-  /* Customize scrollbar */
-  .about::-webkit-scrollbar {
-    width: 2px; /* Set the width of the scrollbar */
-  }
-  
-  .about::-webkit-scrollbar-track {
-    background-color: transparent; /* Color of the track (background of the scrollbar) */
-    border-radius:  none; /* Rounded corners for the track */
-  }
-  
-  .about::-webkit-scrollbar-thumb {
-    border-radius: 10px; /* Rounded corners for the thumb */
-    border: 3px solid #ffc107; /* Optional: border around the thumb to make it stand out */
-  }
-
-
-  .submit_button {
-    width: 60vw;
-    height: 5vh;
-    border-radius: 5px;
-    font-size: 1.35em;
-    font-weight: 500;
-    background-color: #f50100;
-    color: white;
-    display: block;
-    margin: 0 10%;
-    border: none;
-  }
-  
-  .submit_button:active {
-    background-color: rgba(129, 121, 250, 1);
-  }
-
-  .add_friend_button{
-    display: flex;
-    margin-top: 1.2vh;
-    justify-content: center;
-  }
 
 .oops_img {
     width: 75vw;

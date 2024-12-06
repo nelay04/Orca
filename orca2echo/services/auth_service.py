@@ -118,9 +118,9 @@ def send_otp(otp, email, name):
     plain_message = strip_tags(html_message)  # Generate plain text version if needed
 
     send_mail(
-        otp,  # Subject of the email
+        "Orca",  # Subject of the email
         plain_message,  # Plain text content (optional fallback)
-        "coffeecold97@gmail.com",  # Sender's email address
+        "snowflake.2k04@gmail.com",  # Sender's email address
         [email],  # List of recipient email addresses
         fail_silently=False,
         html_message=html_message,  # HTML content of the email
@@ -224,7 +224,7 @@ def normalize_full_name(full_name):
     return normalized_name
 
 
-def decrypt(encoded_value):
+def base64_decrypt(encoded_value):
     try:
         # First Base64 decoding (URL-safe)
         first_decode = base64.urlsafe_b64decode(
@@ -237,4 +237,16 @@ def decrypt(encoded_value):
         return second_decode
     except Exception as e:
         print(f"Decoding failed: {e}")
+        return None
+
+
+def base64_encrypt(original_value):
+    try:
+        # First Base64 encoding (URL-safe)
+        first_encode = base64.urlsafe_b64encode(original_value.encode("utf-8")).decode("utf-8").rstrip("=")
+        # Second Base64 encoding (URL-safe)
+        second_encode = base64.urlsafe_b64encode(first_encode.encode("utf-8")).decode("utf-8").rstrip("=")
+        return second_encode
+    except Exception as e:
+        print(f"Encoding failed: {e}")
         return None
