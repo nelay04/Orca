@@ -25,6 +25,7 @@
     --tr: all 0.5s ease 0s;
     --lg: var(--of);
     --nav-p-color: rgba(147, 137, 230, 1);
+    --nav-ul-color: rgba(0, 0, 0,0.1);
 }
 
 /* Dark Mode Variables */
@@ -40,6 +41,7 @@
     --danger-p-color: rgba(255, 0, 0, 0.5);
     --overlay-color: rgba(137, 119, 207, 0.1);
     --nav-p-color: rgba(97, 87, 220, 1);
+    --nav-ul-color: rgba(255, 255, 255,0.1);
 }
 
 /* Applying Variables */
@@ -57,9 +59,16 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 25px 10px 25px;
-    box-shadow: 0 4px 8px var(--nav-shadow-color);
+    padding: 10px 25px;
     z-index: 100;
+    transition: box-shadow 0.2s ease;
+    border-bottom: 1px solid var(--nav-ul-color);
+    user-select: none;
+}
+
+/* Shadow effect when scrolled */
+.navbar.scrolled {
+    box-shadow: 0 4px 4px var(--nav-shadow-color);
 }
 
 /* Left side of the navbar (Profile Image) */
@@ -73,6 +82,7 @@ body {
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
+    user-select: none;
 }
 
 /* Center part (Search Input) */

@@ -2,7 +2,35 @@
 {% block title %}Orca{% endblock %}
 {% block page %}Orca{% endblock %}
 
+{% block css %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/index.css' %}" />
+{% endblock %}
 
 {% block body %}
-<p>Hii</p>
+<div class="spacer_1"></div>
+
+{% for friend in friends_data %}
+<form action="{% url 'direct-message' %}" method="POST" id="form-{{ friend.user_data.user_name }}">
+    {% csrf_token %}
+    <input type="hidden" name="user-id" value="{{ friend.user_data.user_name }}" />
+    <div class="user" onclick="submitForm('{{ friend.user_data.user_name }}')">
+        <img src="data:image/png;base64,{{ friend.user_profile.profile_picture }}" alt="image" class="user-img" />
+        <div class="text_area">
+            <div class="name">{{ friend.user_data.full_name }}</div>
+            <div class="last_message">Ki re ki korchis</div>
+        </div>
+    </div>
+</form>
+{% endfor %}
+
+
+
+
+
+{% endblock %}
+
+
+{% block js %}
+<script src="{% static 'js/index.js' %}"></script>
 {% endblock %}

@@ -16,4 +16,6 @@ urlpatterns = [
     path("friends", views.friends, name="friends"),
     path("sent-requests", views.sent_requests, name="sent-requests"),
     path("response", views.response, name="response"),
+
+    path("direct-message", views.direct_message, name="direct-message"),
 ]

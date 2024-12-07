@@ -18,7 +18,7 @@
 
 <body>
   <!-- Sticky Navbar -->
-  <nav class="navbar">
+  <nav class="navbar" id="navbar">
     <div class="navbar-left">
       <i class="fa-solid fa-bars" onclick="openSidebar()"></i>
     </div>
@@ -29,7 +29,7 @@
     </div>
 
     <div class="navbar-right">
-      <img src="data:image/png;base64,{{ auth_user_info.base64_image }}" alt="image" class="profile-img" href="/"/>
+      <img src="data:image/png;base64,{{ auth_user_info.base64_image }}" alt="image" class="profile-img" onclick="window.location.href='/'"/>
     </div>
   </nav>
   <!-- Sidebar -->
@@ -78,6 +78,7 @@
   {% block body %}
 
   {% endblock %}
+
 
   <script src="{% static 'js/index_base.js' %}"></script>
   {% block js %}

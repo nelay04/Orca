@@ -16,7 +16,8 @@ Friends
 
 <div class="card_container">
 {% for request_data in friend_request_data %}
-    <div class="card_body" onclick="window.location.href='{{request_data.base_url}}/search-profile?short-name={{request_data.user_data.short_name_enc}}&id-number={{request_data.user_data.search_id_enc}}'">
+<div class="card_body" 
+     onclick="window.location.href='{% url 'search-profile' %}?short-name={{request_data.user_data.short_name_enc}}&id-number={{request_data.user_data.search_id_enc}}'">
         <div class="gender"><i class="fa-solid {{ request_data.user_data.gender_icon_string }}"></i></div>
         <img src="data:image/png;base64,{{ request_data.user_profile.profile_picture }}" alt="image" class="card_img" />
         <p class="card_name">{{ request_data.user_data.full_name }}</p>        

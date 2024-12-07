@@ -14,6 +14,7 @@ from django.core.mail import send_mail  # type: ignore
 from django.core.validators import validate_email  # type: ignore
 from django.http import Http404  # type: ignore
 from django.shortcuts import HttpResponse, redirect, render  # type: ignore
+from django.http import HttpResponseBadRequest  # type: ignore
 from django.urls import reverse  # type: ignore
 
 # Local App Imports - Models
@@ -51,7 +52,8 @@ from .services.mongo_service import (
     update_fields_by_user_name,
     update_objects,
     find_friendship,
-    find_friend_users,
+    find_friend_users_alphabetically_sorted,
+    find_friend_users_sorted_by_updated_at,
 )
 
 
@@ -59,11 +61,54 @@ from .services.mongo_service import (
 
 @login_required(login_url="signin")
 def index(request):
+
+    # Fetch all friends for the logged-in user
+    friends = find_friend_users_sorted_by_updated_at(request.user.username)
+
+    friends_data = []
+    # Loop through all the friend requests to gather user data and profile information
+    for friend in friends:
+        # Fetch user data for the sender of the friend request
+        searched_user_data = find_an_object(
+            collection_name="user_data",
+            search_criteria={
+                "user_name": friend['user_name']},
+        )
+        # Fetch user profile for the sender of the friend request
+        searched_user_profile = find_an_object(
+            collection_name="user_profile",
+            search_criteria={
+                "user_name": friend['user_name']},
+        )
+
+        # If both user data and profile are found, append to the result list
+        if searched_user_data and searched_user_profile:
+            friends_data.append(
+                {
+                    "user_data": {
+                        "_id": str(
+                            searched_user_data["_id"]
+                        ),  # Converting ObjectId to string for JSON serializability
+                        "user_name": searched_user_data["user_name"],
+                        "full_name": searched_user_data["full_name"],
+                    },
+                    "user_profile": {
+                        "profile_picture": searched_user_profile["profile_picture"],
+                    },
+                }
+            )
+    # Pass the friend request data to the template
+    auth_user_info = auth_user_data(request)
+
+    context = {
+        "friends_data": friends_data,
+        "auth_user_info": auth_user_info,
+    }
     auth_user_info = auth_user_data(request)
     return render(
         request,
         "index.html",
-        {"auth_user_info": auth_user_info},
+        context
     )
 
 
@@ -496,26 +541,41 @@ def search_profile(request):
             },
         )
 
-        # if request object is available
-        if if_friend_request:
-            if if_friend_request.get("is_accepted") is True:
+        # check current relation with searched user
+        if_friends_reverse = find_an_object(
+            collection_name="friend_request_list",
+            search_criteria={
+                "user_name_sender": searched_user_data.get("user_name"),
+                "user_name_receiver": request.user.username,
+            },
+        )
+
+        if if_friends_reverse:
+            if if_friends_reverse.get("is_accepted") is True:
                 btn_text = "You're Friends"
                 btn_color = "#00e800"
                 action = "/"
-            # if request object is not available then allow to cancel request
-            elif if_friend_request.get("is_active") is True:
-                btn_text = "Cancel Request"
-                btn_color = "#f50100"
-                action = "/cancel-request"
+        else:
+            # if request object is available
+            if if_friend_request:
+                if if_friend_request.get("is_accepted") is True:
+                    btn_text = "You're Friends"
+                    btn_color = "#00e800"
+                    action = "/"
+                # if request object is not available then allow to cancel request
+                elif if_friend_request.get("is_active") is True:
+                    btn_text = "Cancel Request"
+                    btn_color = "#f50100"
+                    action = "/cancel-request"
+                else:
+                    btn_text = "Add Friend"
+                    btn_color = "#766bc9"
+                    action = "/add-friend"
+            # if request object is not available then allow to add friend
             else:
                 btn_text = "Add Friend"
                 btn_color = "#766bc9"
                 action = "/add-friend"
-        # if request object is not available then allow to add friend
-        else:
-            btn_text = "Add Friend"
-            btn_color = "#766bc9"
-            action = "/add-friend"
 
         # show profile card accourding to current relation and allowed action
         return render(
@@ -857,7 +917,6 @@ def response(request):
             # check if friendship object is created already in friend_list collection
             friendship = find_friendship(
                 request.user.username, searched_sender_data.get("user_name"))
-            print(friendship)
             if not friendship:
                 # if there is no active friend object create one
                 new_friend = FriendList(
@@ -868,7 +927,6 @@ def response(request):
                 result = new_friend.save()
             friendship = find_friendship(
                 request.user.username, searched_sender_data.get("user_name"))
-            print(friendship)
 
     redirect_url = reverse('friend-requests')
     response = redirect(redirect_url)
@@ -880,13 +938,11 @@ def response(request):
 
 @login_required(login_url="signin")
 def friends(request):
-    base_url = request.build_absolute_uri('/').rstrip('/')
-    # Fetch all active friend requests for the logged-in user
-    friends = find_friend_users(request.user.username)
-    print(friends)# Sort the list alphabetically
+    # base_url = request.build_absolute_uri('/').rstrip('/')
+    # Fetch all friends for the logged-in user
+    friends = find_friend_users_alphabetically_sorted(request.user.username)
 
     friends_data = []
-
     # Loop through all the friend requests to gather user data and profile information
     for friend in friends:
         # Fetch user data for the sender of the friend request
@@ -914,7 +970,7 @@ def friends(request):
                 gender_icon_string = "fa-mars-and-venus"
 
             friends_data.append(
-                {"base_url":base_url,
+                {
                     "user_data": {
                         "_id": str(
                             searched_user_data["_id"]
@@ -949,7 +1005,19 @@ def friends(request):
     context = {
         "friend_request_data": friends_data,
         # You can add a logic here to determine if the user is the sender of the request
-        "its_me": False,
         "auth_user_info": auth_user_info,
     }
     return render(request, "friends.html", context)
+
+
+def direct_message(request):
+    if request.method == 'POST':
+        user_id = request.POST.get('user-id')
+        if user_id:
+            return HttpResponse(
+                user_id
+            )
+        else:
+            return HttpResponseBadRequest("User ID is missing.")
+    else:
+        return HttpResponseBadRequest("Invalid request method.")

@@ -26,8 +26,8 @@ Friend Requests
             <p class="card_about">{{ request_data.user_profile.about }}</p>
         </div>
 
-        <input type="text" id="short_name_enc" name="short_name_enc" value="{{ request_data.user_data.short_name }}" class="hidden"/>
-        <input type="text" id="id_number_enc" name="id_number_enc" value="{{ request_data.user_data.search_id }}" class="hidden"/>
+        <input type="hidden" id="short_name_enc" name="short_name_enc" value="{{ request_data.user_data.short_name }}" class="hidden"/>
+        <input type="hidden" id="id_number_enc" name="id_number_enc" value="{{ request_data.user_data.search_id }}" class="hidden"/>
 
         <div class="response_buttons">
             <div class="decline_button">
