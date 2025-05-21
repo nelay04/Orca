@@ -1,4 +1,6 @@
 # Standard Library Imports
+from django.http import HttpResponse, HttpResponseBadRequest  # type: ignore
+import json
 import re
 import sys
 import time
@@ -18,7 +20,7 @@ from django.http import HttpResponseBadRequest  # type: ignore
 from django.urls import reverse  # type: ignore
 
 # Local App Imports - Models
-from .models import FriendRequestList, Otp, UserData, UserProfile, FriendList
+from .models import FriendRequestList, Otp, UserData, UserProfile, FriendList, Conversation
 
 # Local App Imports - Services
 from .services.auth_service import (
@@ -54,6 +56,8 @@ from .services.mongo_service import (
     find_friendship,
     find_friend_users_alphabetically_sorted,
     find_friend_users_sorted_by_updated_at,
+    get_conversation_between_users,
+    get_conversation_id_for_friendship,
 )
 
 
@@ -89,8 +93,11 @@ def index(request):
                         "_id": str(
                             searched_user_data["_id"]
                         ),  # Converting ObjectId to string for JSON serializability
-                        "user_name": searched_user_data["user_name"],
+                        # "user_name": searched_user_data["user_name"],
                         "full_name": searched_user_data["full_name"],
+                        "encrypted_user_name": base64_encrypt(
+                            searched_user_data["user_name"]
+                        ),
                     },
                     "user_profile": {
                         "profile_picture": searched_user_profile["profile_picture"],
@@ -1010,14 +1017,105 @@ def friends(request):
     return render(request, "friends.html", context)
 
 
+@login_required(login_url="signin")
 def direct_message(request):
-    if request.method == 'POST':
-        user_id = request.POST.get('user-id')
-        if user_id:
-            return HttpResponse(
-                user_id
+    # if request.method == 'POST':
+    if request.method == 'GET':
+        # friend_id = request.POST.get('user-id')
+        encoded_friend_id = request.GET.get('with')
+        friend_id = base64_decrypt(encoded_friend_id)
+
+        # If user tries to access his own chat page then redirect to home page
+        if request.user.username == friend_id:
+            redirect_url = reverse('orca')
+            response = redirect(redirect_url)
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
+
+        if friend_id:
+            conversations = get_conversation_between_users(
+                request.user.username, friend_id)
+            # Parse and sort by datetime (oldest first)
+
+            def parse_dt(msg):
+                val = msg.get('created_at')
+                for fmt in ("%d-%m-%Y %H:%M:%S:%f", "%d-%m-%Y %H:%M:%S"):
+                    try:
+                        return datetime.strptime(val, fmt)
+                    except Exception:
+                        continue
+                return None
+
+            for msg in conversations:
+                dt = parse_dt(msg)
+                if dt:
+                    msg['created_at_dt'] = dt
+                    msg['created_at_formatted'] = dt.strftime(
+                        "%I:%M %p").lstrip('0').lower()
+                else:
+                    msg['created_at_dt'] = None
+                    msg['created_at_formatted'] = msg.get('created_at', '')
+
+            conversations_sorted = sorted(
+                conversations,
+                key=lambda x: x.get('created_at_dt') or datetime.min
+            )
+
+            # get current user data
+            auth_user_info = auth_user_data(request)
+            # Get the first name of the friend
+            searched_user_data = find_an_object(
+            collection_name="user_data",
+                search_criteria={
+                    "user_name": friend_id,
+                },
+            )
+            first_name = searched_user_data['full_name'].split(
+            )[0] if searched_user_data and 'full_name' in searched_user_data else ''
+            return render(
+                request,
+                "chat.html",
+                {
+                    "friend_id": friend_id,
+                    "first_name": first_name,
+                    "messages": conversations_sorted,
+                    "auth_user_info": auth_user_info,
+                }
             )
         else:
             return HttpResponseBadRequest("User ID is missing.")
+    else:
+        return HttpResponseBadRequest("Invalid request method.")
+
+
+
+
+@login_required(login_url="signin")
+def send_message(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            message = data.get('message')
+            friend_id = data.get('friend_id')
+            created_at = data.get('created_at')
+
+            conversation_id = get_conversation_id_for_friendship(
+                request.user.username, friend_id)
+
+            conversation_document = Conversation(  # Create a dictionary for the user data
+                conversation_id= conversation_id,
+                sender= request.user.username,
+                message= message,
+                receiver= friend_id,
+                created_at= created_at,
+            )
+            result = conversation_document.save()
+            if not result:
+                return HttpResponseBadRequest("Failed to send message.")
+            return HttpResponse("Message sent successfully.")
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("Invalid JSON.")
     else:
         return HttpResponseBadRequest("Invalid request method.")

@@ -7,6 +7,7 @@ user_data = db["user_data"]
 user_profile = db["user_profile"]
 friend_request_list = db["friend_request_list"]
 friend_list = db["friend_list"]
+conversations = db["conversations"]
 # Create your models here.
 
 
@@ -90,6 +91,7 @@ class UserProfile:
             return False
 
 
+
 class FriendRequestList:
     def __init__(
         self,
@@ -147,12 +149,6 @@ class FriendRequestList:
 
 
 
-
-
-
-
-
-
 class FriendList:
     def __init__(
         self,
@@ -182,6 +178,44 @@ class FriendList:
         try:
             result = friend_list.insert_one(
                 friend_request_document
+            )  # Insert the user document into the 'user_data' collection
+            return result.inserted_id  # Return the ID of the newly inserted document
+        except errors.DuplicateKeyError:
+            return False
+
+
+class Conversation:
+    def __init__(
+        self,
+        conversation_id: str = None,
+        sender: str = None,
+        receiver: str = None,
+        message: str = None,
+        is_active: bool = True,
+        created_at: str = None,
+        updated_at: str = None,
+    ):
+        self.conversation_id = conversation_id
+        self.sender = sender
+        self.receiver = receiver
+        self.message = message
+        self.is_active = is_active
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def save(self):
+        conversation_document = {  # Create a dictionary for the user data
+            "conversation_id": self.conversation_id,
+            "sender": self.sender,
+            "receiver": self.receiver,
+            "message": self.message,
+            "is_active": self.is_active,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+        try:
+            result = conversations.insert_one(
+                conversation_document
             )  # Insert the user document into the 'user_data' collection
             return result.inserted_id  # Return the ID of the newly inserted document
         except errors.DuplicateKeyError:

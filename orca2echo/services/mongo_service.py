@@ -333,3 +333,77 @@ def find_friend_users_sorted_by_updated_at(user_name: str) -> List[dict]:
         # Log the error (replace print with proper logging in production)
         print(f"Error occurred while searching for friends: {e}")
         return []
+
+
+
+
+
+def get_conversation_between_users(user_id: str, friend_id: str) -> List[dict]:
+    """
+    Retrieve conversation messages between two users from the 'conversations' collection,
+    where the conversation_id is either 'user_id_friend_id' or 'friend_id_user_id'.
+    Messages are sorted by 'created_at' in ascending order.
+
+    Args:
+        user_id (str): The first user's ID.
+        friend_id (str): The friend's user ID.
+
+    Returns:
+        List[dict]: List of conversation messages sorted by 'created_at' ascending.
+    """
+    try:
+        conversations_collection = db["conversations"]
+        conversation_ids = [
+            f"{user_id}_{friend_id}",
+            f"{friend_id}_{user_id}"
+        ]
+        messages_cursor = conversations_collection.find(
+            {
+            "conversation_id": {"$in": conversation_ids},
+            "is_active": True
+            },
+            {"_id": 0, "message": 1, "created_at": 1, "sender": 1, "receiver": 1}
+        ).sort("created_at", -1)  # -1 for descending order
+
+        messages = []
+        for msg in messages_cursor:
+            is_sender = msg.get("sender") == user_id
+            messages.append({
+                "message": msg.get("message"),
+                "created_at": msg.get("created_at"),
+                "is_sender": is_sender
+            })
+        return messages
+    except Exception as e:
+        print(f"Error occurred while fetching conversation: {e}")
+        return []
+    
+
+def get_conversation_id_for_friendship(user_id: str, friend_id: str) -> Optional[str]:
+    """
+    Given two user IDs, search the 'friend_list' collection for a friendship document
+    where user_1 and user_2 match either user_id and friend_id in any order.
+    Return the 'conversation_id' field from that document if found.
+
+    Args:
+        user_id (str): The first user's ID.
+        friend_id (str): The friend's user ID.
+
+    Returns:
+        Optional[str]: The conversation_id if found, otherwise None.
+    """
+    try:
+        friend_list_collection = db["friend_list"]
+        search_criteria = {
+            "$or": [
+                {"user_1": user_id, "user_2": friend_id},
+                {"user_1": friend_id, "user_2": user_id},
+            ]
+        }
+        friendship = friend_list_collection.find_one(search_criteria)
+        if friendship and "conversation_id" in friendship:
+            return friendship["conversation_id"]
+        return None
+    except Exception as e:
+        print(f"Error occurred while fetching conversation_id: {e}")
+        return None

@@ -1,0 +1,122 @@
+{% extends 'index_base.html' %}
+{% block title %}
+  Chat with {{ first_name }}
+  {% if short_name %}{{ short_name }}{% endif %}| Orca
+{% endblock %}
+
+{% block css %}
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/chat.css' %}" />
+{% endblock %}
+
+{% block page %}
+  Chat with {{ first_name }}
+{% endblock %}
+
+{% block body %}
+  <div class="chat-container">
+    <div class="message-list" id="messageList">
+      {% for msg in messages %}
+        <div class="message {% if msg.is_sender %}
+            right
+          {% else %}
+            left
+          {% endif %}{% if forloop.last %} last-msg{% endif %}">
+          <div>{{ msg.message }}</div>
+          <div class="timestamp {% if msg.is_sender %}
+              right_time
+            {% else %}
+              left_time
+            {% endif %}">{{ msg.created_at_formatted }}</div>
+        </div>
+      {% endfor %}
+      <div id="scroll-anchor"></div>
+    </div>
+  </div>
+  <div class="compose-form-container">
+    <form id="composeForm" class="compose-form">
+      <input type="text" id="composeInput" name="message" placeholder="Type your message..." autocomplete="off" required />
+      <input type="hidden" id="friendId" name="friend_id" value="{{ friend_id }}" />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+  <script>
+    const composeForm = document.getElementById('composeForm')
+    const composeInput = document.getElementById('composeInput')
+    const messageList = document.getElementById('messageList')
+    const scrollAnchor = document.getElementById('scroll-anchor')
+    const friendId = document.getElementById('friendId') ? document.getElementById('friendId').value : ''
+    
+    // Always scroll to the anchor after the last message
+    function scrollToLastMessage() {
+      if (scrollAnchor) {
+        scrollAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      }
+    }
+    
+    // On page load, scroll to last message
+    window.addEventListener('DOMContentLoaded', scrollToLastMessage)
+    window.addEventListener('load', scrollToLastMessage)
+    
+    composeForm.addEventListener('submit', async function (e) {
+      e.preventDefault()
+      const message = composeInput.value.trim()
+      if (!message) return
+    
+      // Get current timestamp in h:mm am/pm (lowercase, no leading zero on hour)
+      const now = new Date()
+      let hours = now.getHours()
+      const minutes = now.getMinutes()
+      const ampm = hours >= 12 ? 'pm' : 'am'
+      hours = hours % 12
+      hours = hours ? hours : 12 // the hour '0' should be '12'
+      const formattedTime = `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`
+    
+      // Also capture full timestamp with ms: DD-MM-YYYY HH:mm:ss:SSS
+      const pad = (n, len = 2) => n.toString().padStart(len, '0')
+      const createdAt = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}:${pad(now.getMilliseconds(), 3)}`
+    
+      // Optimistically add message to chat
+      // Remove .last-msg class from previous last message
+      const prevLast = messageList.querySelector('.last-msg')
+      if (prevLast) prevLast.classList.remove('last-msg')
+    
+      const msgDiv = document.createElement('div')
+      msgDiv.className = 'message right last-msg'
+      msgDiv.innerHTML = `
+            <div>${message}</div>
+            <div class="timestamp right_time">${formattedTime}</div>
+          `
+      // Insert before the scroll anchor
+      messageList.insertBefore(msgDiv, scrollAnchor)
+    
+      // Scroll to the new last message
+      scrollToLastMessage()
+    
+      // Clear input
+      composeInput.value = ''
+    
+      // Send to API with created_at
+      try {
+        await fetch('/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+          },
+          body: JSON.stringify({
+            message,
+            friend_id: friendId,
+            created_at: createdAt
+          })
+        })
+      } catch (err) {
+        // Optionally handle error (e.g., show a warning)
+      }
+    })
+  </script>
+{% endblock %}
+
+{% block js %}
+  <script src="{% static 'js/friend_requests.js' %}"></script>
+{% endblock %}

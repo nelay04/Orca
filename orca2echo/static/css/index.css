@@ -31,3 +31,19 @@ font-weight: 400;
     font-size: 0.9rem;
 font-weight: 300;
 }
+
+
+.user-link {
+    text-decoration: none !important;
+    color: inherit !important;
+    background: none !important;
+    display: block;
+}
+.user-link:visited,
+.user-link:active,
+.user-link:focus,
+.user-link:hover {
+    text-decoration: none !important;
+    color: inherit !important;
+    background: none !important;
+}

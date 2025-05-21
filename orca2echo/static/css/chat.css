@@ -1,0 +1,125 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Light Mode (Default) */
+:root {
+    --card-bg-color: #d6d6d6;
+    --text-color: rgb(51, 51, 51);
+    --card-box-shadow: rgba(0, 0, 0, 0.24);
+    --about-box-shadow: rgba(0, 0, 0, 0.1);
+    --about-box-bg: rgb(248, 249, 250);
+    --chat-container-bg: #d6d6d6;
+}
+
+/* Dark Mode Variables */
+[data-theme="dark"] {
+    --card-bg-color: rgb(10, 30, 50);
+    ;
+    --text-color: rgb(255, 255, 255);
+    --card-box-shadow: rgba(255, 255, 255, 0.24);
+    --about-box-shadow: rgba(255, 255, 255, 0.1);
+    --about-box-bg: rgb(3, 21, 38);
+    --chat-container-bg: #0a1e32;
+}
+
+.chat-container {
+            max-width: 600px;
+            background: var(--chat-container-bg);
+            border-radius: 8px;
+            padding: 20px;
+            max-height: fit-content;
+            margin: 0 auto;
+        }
+        .message-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .message {
+            max-width: 85%;
+            padding: 8px 10px;
+            border-radius: 16px;
+            font-size: 16px;
+            position: relative;
+            word-break: break-word;
+        }
+        .message.left {
+            align-self: flex-start;
+            background: rgba(180, 180, 180, 1);
+            color: #222;
+            border-bottom-left-radius: 4px;
+        }
+        .message.right {
+            align-self: flex-end;
+            background: var(--nav-p-color);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .timestamp {
+            font-size: 12px;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .right_time{
+            color: rgb(230, 230, 230);
+        }
+
+        
+        .left_time{
+            color: rgb(110, 110, 110);
+        }
+
+        .message.last-msg {
+            margin-bottom: 60px; /* ensures last message is visible above compose bar */
+        }
+
+        .compose-form-container{
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            background: var(--chat-container-bg);
+            z-index: 100;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+            padding: 12px 0 8px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .compose-form {
+            display: flex;
+            width: 100%;
+            max-width: 600px;
+            gap: 8px;
+            padding: 0 20px;
+        }
+
+        .compose-form input[type="text"] {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .compose-form button {
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: none;
+            background: var(--nav-p-color, #0078d7);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .compose-form button:hover {
+            background: #005fa3;
+        }
