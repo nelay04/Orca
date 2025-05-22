@@ -17,17 +17,18 @@
   <div class="chat-container">
     <div class="message-list" id="messageList">
       {% for msg in messages %}
+        {# Ensure msg.sender is available and holds the sender's username from your view context #}
         <div class="message {% if msg.is_sender %}
-            right
-          {% else %}
-            left
-          {% endif %}{% if forloop.last %} last-msg{% endif %}">
+          right
+        {% else %}
+          left
+        {% endif %}{% if forloop.last %} last-msg{% endif %}">
           <div>{{ msg.message }}</div>
           <div class="timestamp {% if msg.is_sender %}
-              right_time
-            {% else %}
-              left_time
-            {% endif %}">{{ msg.created_at_formatted }}</div>
+            right_time
+          {% else %}
+            left_time
+          {% endif %}">{{ msg.created_at_formatted }}</div>
         </div>
       {% endfor %}
       <div id="scroll-anchor"></div>
@@ -37,86 +38,156 @@
     <form id="composeForm" class="compose-form">
       <input type="text" id="composeInput" name="message" placeholder="Type your message..." autocomplete="off" required />
       <input type="hidden" id="friendId" name="friend_id" value="{{ friend_id }}" />
+      {# This encrypted_conversation_id comes from your direct_message view context #}
+      <input type="hidden" id="encryptedConversationId" value="{{ encrypted_conversation_id }}" />
       <button type="submit">Send</button>
     </form>
   </div>
   <script>
-    const composeForm = document.getElementById('composeForm')
-    const composeInput = document.getElementById('composeInput')
-    const messageList = document.getElementById('messageList')
-    const scrollAnchor = document.getElementById('scroll-anchor')
-    const friendId = document.getElementById('friendId') ? document.getElementById('friendId').value : ''
-    
-    // Always scroll to the anchor after the last message
+    const composeForm = document.getElementById('composeForm');
+    const composeInput = document.getElementById('composeInput');
+    const messageList = document.getElementById('messageList');
+    const scrollAnchor = document.getElementById('scroll-anchor');
+    const friendId = document.getElementById('friendId') ? document.getElementById('friendId').value : '';
+    const encryptedConversationId = document.getElementById('encryptedConversationId').value;
+
+    // Make sure request.user.username is available in the template context for this script
+    const currentUsername = "{{ request.user.username }}";
+
     function scrollToLastMessage() {
       if (scrollAnchor) {
-        scrollAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        // Using 'auto' or 'instant' for behavior during rapid message arrival might feel smoother
+        // than 'smooth' sometimes.
+        scrollAnchor.scrollIntoView({ behavior: 'auto', block: 'end' });
       }
     }
-    
-    // On page load, scroll to last message
-    window.addEventListener('DOMContentLoaded', scrollToLastMessage)
-    window.addEventListener('load', scrollToLastMessage)
-    
+
+    window.addEventListener('DOMContentLoaded', scrollToLastMessage);
+    window.addEventListener('load', scrollToLastMessage); // Fallback for images/content loading later
+
+    // --- WebSocket Setup ---
+    const chatSocketProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    // Ensure encryptedConversationId is properly encoded for a URL if it contains special characters
+    // not handled by the regex in routing.py, though your current one should be fine.
+    const chatSocketURL = `${chatSocketProtocol}://${window.location.host}/ws/chat/${encryptedConversationId}/`;
+    console.log("Connecting to WebSocket:", chatSocketURL);
+    const chatSocket = new WebSocket(chatSocketURL);
+
+    chatSocket.onopen = function(e) {
+        console.log('Chat socket connected successfully.');
+    };
+
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        if (data.error) {
+            console.error("Server error:", data.error);
+            alert("Error: " + data.error); // Inform user
+            return;
+        }
+
+        const message = data.message;
+        const senderUsername = data.sender_username;
+        const formattedTime = data.formatted_time;
+
+        // Only append if the message is from the OTHER user.
+        // The sender's own message is already added optimistically.
+        if (senderUsername !== currentUsername) {
+            const prevLast = messageList.querySelector('.last-msg');
+            if (prevLast) prevLast.classList.remove('last-msg');
+
+            const msgDiv = document.createElement('div');
+            // Messages received are from the other person, so they are 'left'
+            msgDiv.className = 'message left last-msg';
+            msgDiv.innerHTML = `
+                <div>${message}</div>
+                <div class="timestamp left_time">${formattedTime}</div>
+            `;
+            messageList.insertBefore(msgDiv, scrollAnchor);
+            scrollToLastMessage();
+        } else {
+            // This is an echo of the sender's own message, potentially for confirmation.
+            // You could update the optimistically added message (e.g., add a "sent" tick)
+            // For now, we assume the optimistic update is sufficient.
+            console.log("Received echo of own message or confirmation:", data);
+        }
+    };
+
+    chatSocket.onclose = function(e) {
+        console.error('Chat socket closed. Code:', e.code, 'Reason:', e.reason, 'Clean:', e.wasClean);
+        // You might want to inform the user or attempt to reconnect here.
+        // Example: alert("Chat connection closed. Please refresh the page.");
+    };
+
+    chatSocket.onerror = function(err) {
+        console.error('WebSocket error observed:', err);
+        // This typically fires before onclose if the connection fails.
+        // Example: alert("Chat connection error. Please check your internet and refresh.");
+    };
+
+
     composeForm.addEventListener('submit', async function (e) {
-      e.preventDefault()
-      const message = composeInput.value.trim()
-      if (!message) return
-    
-      // Get current timestamp in h:mm am/pm (lowercase, no leading zero on hour)
-      const now = new Date()
-      let hours = now.getHours()
-      const minutes = now.getMinutes()
-      const ampm = hours >= 12 ? 'pm' : 'am'
-      hours = hours % 12
-      hours = hours ? hours : 12 // the hour '0' should be '12'
-      const formattedTime = `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`
-    
-      // Also capture full timestamp with ms: DD-MM-YYYY HH:mm:ss:SSS
-      const pad = (n, len = 2) => n.toString().padStart(len, '0')
-      const createdAt = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}:${pad(now.getMilliseconds(), 3)}`
-    
-      // Optimistically add message to chat
-      // Remove .last-msg class from previous last message
-      const prevLast = messageList.querySelector('.last-msg')
-      if (prevLast) prevLast.classList.remove('last-msg')
-    
-      const msgDiv = document.createElement('div')
-      msgDiv.className = 'message right last-msg'
+      e.preventDefault();
+      const message = composeInput.value.trim();
+      if (!message) return;
+
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes();
+      const ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const formattedTime = `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+
+      const pad = (n, len = 2) => n.toString().padStart(len, '0');
+      const day = pad(now.getDate());
+      const month = pad(now.getMonth() + 1); // Month is 0-indexed
+      const year = now.getFullYear();
+      const S = pad(now.getSeconds());
+      const MS = pad(now.getMilliseconds(), 3);
+      const H = pad(now.getHours());
+      const M = pad(now.getMinutes());
+      const createdAt = `${day}-${month}-${year} ${H}:${M}:${S}:${MS}`; // DD-MM-YYYY HH:MM:SS:ms
+
+      // Optimistically add message to UI
+      const prevLast = messageList.querySelector('.last-msg');
+      if (prevLast) prevLast.classList.remove('last-msg');
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message right last-msg'; // Sender's messages are always 'right'
       msgDiv.innerHTML = `
-            <div>${message}</div>
-            <div class="timestamp right_time">${formattedTime}</div>
-          `
-      // Insert before the scroll anchor
-      messageList.insertBefore(msgDiv, scrollAnchor)
-    
-      // Scroll to the new last message
-      scrollToLastMessage()
-    
-      // Clear input
-      composeInput.value = ''
-    
-      // Send to API with created_at
-      try {
-        await fetch('/send-message', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-          },
-          body: JSON.stringify({
-            message,
-            friend_id: friendId,
-            created_at: createdAt
-          })
-        })
-      } catch (err) {
-        // Optionally handle error (e.g., show a warning)
+          <div>${message}</div>
+          <div class="timestamp right_time">${formattedTime}</div>
+      `;
+      messageList.insertBefore(msgDiv, scrollAnchor);
+      scrollToLastMessage();
+      const originalMessageValue = composeInput.value; // Save for potential revert
+      composeInput.value = ''; // Clear input
+
+      // Send message via WebSocket
+      if (chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({
+            'message': message,
+            'friend_id': friendId, // The recipient's username
+            'created_at': createdAt, // Full timestamp for DB
+            'formatted_time': formattedTime // Display time for recipients
+        }));
+      } else {
+        console.error("WebSocket is not open. Message not sent.");
+        alert("Connection error. Message not sent. Please try again.");
+        // Revert optimistic UI update
+        msgDiv.remove();
+        composeInput.value = originalMessageValue; // Restore typed message
       }
-    })
+
+      // The original /send-message fetch is no longer needed if the consumer handles saving.
+      // Keeping it would lead to duplicate saves unless the /send-message endpoint is changed
+      // to not save if a WebSocket message for the same content is expected or already processed.
+    });
   </script>
 {% endblock %}
 
 {% block js %}
+  {# Your existing friend_requests.js if it doesn't conflict #}
   <script src="{% static 'js/friend_requests.js' %}"></script>
 {% endblock %}

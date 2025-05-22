@@ -12,7 +12,10 @@
     --card-box-shadow: rgba(0, 0, 0, 0.24);
     --about-box-shadow: rgba(0, 0, 0, 0.1);
     --about-box-bg: rgb(248, 249, 250);
+
     --chat-container-bg: #d6d6d6;
+    --message-right-bg-color: rgba(147, 137, 230, 1);
+    --message-left-bg-color:rgba(180, 180, 180, 1);
 }
 
 /* Dark Mode Variables */
@@ -23,7 +26,12 @@
     --card-box-shadow: rgba(255, 255, 255, 0.24);
     --about-box-shadow: rgba(255, 255, 255, 0.1);
     --about-box-bg: rgb(3, 21, 38);
-    --chat-container-bg: #0a1e32;
+
+--chat-container-bg: #112233;
+--message-right-bg-color: #071521;
+--message-left-bg-color: #1b3b57;
+
+
 }
 
 .chat-container {
@@ -32,6 +40,7 @@
             border-radius: 8px;
             padding: 20px;
             max-height: fit-content;
+            min-height: 90vh;
             margin: 0 auto;
         }
         .message-list {
@@ -49,13 +58,13 @@
         }
         .message.left {
             align-self: flex-start;
-            background: rgba(180, 180, 180, 1);
+            background: var(--message-left-bg-color);
             color: #222;
             border-bottom-left-radius: 4px;
         }
         .message.right {
             align-self: flex-end;
-            background: var(--nav-p-color);
+            background: var(--message-right-bg-color);
             color: #fff;
             border-bottom-right-radius: 4px;
         }

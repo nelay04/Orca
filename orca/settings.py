@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',  # Added for WebSocket support
     'orca2echo',  # Ensure this is your app where static files are stored
     'django_user_agents',
 ]
@@ -48,6 +49,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_user_agents.middleware.UserAgentMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'orca.urls'
@@ -123,3 +125,14 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Media files settings
 MEDIA_URL = '/media/'  # URL prefix for serving media files
 MEDIA_ROOT = os.path.join(BASE_DIR, 'orca2echo', 'media')  # Path to the media directory
+
+ASGI_APPLICATION = 'orca.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)], # Your Redis server address
+        },
+    },
+}

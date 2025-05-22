@@ -56,8 +56,9 @@ from .services.mongo_service import (
     find_friendship,
     find_friend_users_alphabetically_sorted,
     find_friend_users_sorted_by_updated_at,
-    get_conversation_between_users,
+    get_conversation_by_id,
     get_conversation_id_for_friendship,
+    get_friend_id_by_conversation
 )
 
 
@@ -95,9 +96,7 @@ def index(request):
                         ),  # Converting ObjectId to string for JSON serializability
                         # "user_name": searched_user_data["user_name"],
                         "full_name": searched_user_data["full_name"],
-                        "encrypted_user_name": base64_encrypt(
-                            searched_user_data["user_name"]
-                        ),
+                        "encrypted_conversation_id": base64_encrypt(get_conversation_id_for_friendship( request.user.username,searched_user_data["user_name"]))
                     },
                     "user_profile": {
                         "profile_picture": searched_user_profile["profile_picture"],
@@ -1022,11 +1021,12 @@ def direct_message(request):
     # if request.method == 'POST':
     if request.method == 'GET':
         # friend_id = request.POST.get('user-id')
-        encoded_friend_id = request.GET.get('with')
-        friend_id = base64_decrypt(encoded_friend_id)
+        encoded_conversation_id = request.GET.get('with')
+        conversation_id = base64_decrypt(encoded_conversation_id)
 
-        # If user tries to access his own chat page then redirect to home page
-        if request.user.username == friend_id:
+        # Check if conversation_id contains the full request.user.username
+        if request.user.username not in conversation_id:
+            # If user tries to access another user's conversation, redirect to home
             redirect_url = reverse('orca')
             response = redirect(redirect_url)
             response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -1034,9 +1034,11 @@ def direct_message(request):
             response['Expires'] = '0'
             return response
 
-        if friend_id:
-            conversations = get_conversation_between_users(
-                request.user.username, friend_id)
+        friend_id = get_friend_id_by_conversation(conversation_id, request.user.username)
+
+        if conversation_id:
+            conversations = get_conversation_by_id(conversation_id,
+                request.user.username)
             # Parse and sort by datetime (oldest first)
 
             def parse_dt(msg):
@@ -1074,6 +1076,9 @@ def direct_message(request):
             )
             first_name = searched_user_data['full_name'].split(
             )[0] if searched_user_data and 'full_name' in searched_user_data else ''
+            encrypted_conversation_id = get_conversation_id_for_friendship( request.user.username,friend_id)
+
+            print(conversations_sorted)
             return render(
                 request,
                 "chat.html",
@@ -1082,6 +1087,7 @@ def direct_message(request):
                     "first_name": first_name,
                     "messages": conversations_sorted,
                     "auth_user_info": auth_user_info,
+                    "encrypted_conversation_id":encrypted_conversation_id
                 }
             )
         else:

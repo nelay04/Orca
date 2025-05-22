@@ -11,7 +11,7 @@
 <div class="spacer_1"></div>
 
 {% for friend in friends_data %}
-    <a href="{% url 'chat' %}?with={{ friend.user_data.encrypted_user_name }}" class="user-link">
+    <a href="{% url 'chat' %}?with={{ friend.user_data.encrypted_conversation_id }}" class="user-link">
         <div class="user">
             <img src="data:image/png;base64,{{ friend.user_profile.profile_picture }}" alt="image" class="user-img" />
             <div class="text_area">
