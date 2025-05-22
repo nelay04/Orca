@@ -5,3 +5,7 @@ django-user-agents
 pymongo
 cryptography
 pycryptodome
+uvicorn
+whitenoise
+channels 
+channels-redis

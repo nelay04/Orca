@@ -6,3 +6,8 @@
  * copyright:         
  * Dated:             08-11-2024
  * URL:               http://orca2echo.ddns.net/
+
+
+<!-- sudo apt install redis-server
+sudo systemctl enable redis-server
+sudo systemctl start redis-server -->
