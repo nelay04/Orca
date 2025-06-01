@@ -23,8 +23,11 @@ SECRET_KEY="f4a7c0bf34ed7ae6e84f20ebe2e266a2"
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
-    'https://link.orca2echo.xyz',
-    'https://4593-202-168-85-176.ngrok-free.app',
+    'orca2echo.xyz',
+    'l6l96bdt-8000.inc1.devtunnels.ms',
+    'https://l6l96bdt-8000.inc1.devtunnels.ms',
+    'localhost:8000',
+    'http://localhost:8000',
 ]
 
 # Application definition

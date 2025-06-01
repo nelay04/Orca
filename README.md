@@ -10,4 +10,7 @@
 
 <!-- sudo apt install redis-server
 sudo systemctl enable redis-server
-sudo systemctl start redis-server -->
+sudo systemctl start redis-server
+sudo systemctl status redis-server -->
+
+<!-- uvicorn orca.asgi:application --reload --host 127.0.0.1 --port 8000 -->
