@@ -10,6 +10,12 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/base.css' %}" />
 
+    <!-- Head -->
+    <link rel="manifest" href="{% static 'manifest.json' %}" />
+    <meta name="theme-color" content="#0a0a0a" />
+
+    <!-- Body -->
+
     {% block css %}
 
     {% endblock %}
@@ -26,7 +32,11 @@
     {% endblock %}
 
     <script src="{% static 'js/base.js' %}"></script>
-
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register("{% static 'js/sw.js' %}").then(() => console.log('Service Worker Registered'))
+      }
+    </script>
     {% block js %}
 
     {% endblock %}
