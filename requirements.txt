@@ -10,3 +10,4 @@ whitenoise
 channels 
 channels-redis
 uvicorn[standard]
+pywebpush
