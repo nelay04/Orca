@@ -11,6 +11,7 @@ from django.conf import settings  # type: ignore
 import base64
 import pytz # type: ignore
 import re
+import qrcode
 from .mongo_service import (
     find_an_object,
 )
@@ -250,3 +251,43 @@ def base64_encrypt(original_value):
     except Exception as e:
         print(f"Encoding failed: {e}")
         return None
+
+
+def generate_profile_qr(short_name, search_id):
+    """
+    Generates a unique QR code for the user's profile.
+    The QR code is based on the current time in nanoseconds.
+    
+    Returns:
+        str: A string representing the generated QR code.
+    """
+
+    img_name = (f"qr_{base64_encrypt(short_name)}_{base64_encrypt(search_id)}.png")
+
+    qr_dir = os.path.join(settings.BASE_DIR, f"{os.environ.get("APP_NAME")}", "static", "qr")
+    qr_image_path = os.path.join(qr_dir, img_name)
+    # Ensure the directory exists before checking for the file or saving
+    os.makedirs(qr_dir, exist_ok=True)
+    if os.path.exists(qr_image_path):
+        return img_name
+    else:
+        enc_short_name = base64_encrypt(short_name)
+        enc_search_id = base64_encrypt(search_id)
+
+        host = os.environ.get("HOST")
+        redirect_url = f"{host}/search-profile?short-name={enc_short_name}&id-number={enc_search_id}"
+
+        # Generate the QR code image for the redirect_url
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(redirect_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        img.save(qr_image_path)
+
+        return img_name

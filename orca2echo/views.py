@@ -38,6 +38,7 @@ from .services.auth_service import (
     normalize_full_name,
     send_otp,
     extract_first_name,
+    generate_profile_qr,
 )
 from .services.model_service import (
     add_otp,
@@ -106,15 +107,25 @@ def index(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
+    # Fetch user data for the sender of the friend request
+    user_data = find_an_object(
+        collection_name="user_data",
+        search_criteria={
+            "user_name": request.user.username},
+    )
+    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+
     context = {
         "friends_data": friends_data,
         "auth_user_info": auth_user_info,
+        "img_name": img_name,
     }
     auth_user_info = auth_user_data(request)
+
     return render(
         request,
         "index.html",
-        context
+        context,
     )
 
 
@@ -744,11 +755,20 @@ def friend_requests(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
+    # Fetch user data for the sender of the friend request
+    user_data = find_an_object(
+        collection_name="user_data",
+        search_criteria={
+            "user_name": request.user.username},
+    )
+    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+
     context = {
         "friend_request_data": friend_request_data,
         # You can add a logic here to determine if the user is the sender of the request
         "its_me": False,
         "auth_user_info": auth_user_info,
+        "img_name": img_name,
     }
     return render(request, "friend_requests.html", context)
 
@@ -822,11 +842,20 @@ def sent_requests(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
+    # Fetch user data for the sender of the friend request
+    user_data = find_an_object(
+        collection_name="user_data",
+        search_criteria={
+            "user_name": request.user.username},
+    )
+    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+
     context = {
         "friend_request_data": friend_request_data,
         # You can add a logic here to determine if the user is the sender of the request
         "its_me": False,
         "auth_user_info": auth_user_info,
+        "img_name": img_name,
     }
     return render(request, "sent_requests.html", context)
 
@@ -1008,10 +1037,19 @@ def friends(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
+    # Fetch user data for the sender of the friend request
+    user_data = find_an_object(
+        collection_name="user_data",
+        search_criteria={
+            "user_name": request.user.username},
+    )
+    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+
     context = {
         "friend_request_data": friends_data,
         # You can add a logic here to determine if the user is the sender of the request
         "auth_user_info": auth_user_info,
+        "img_name": img_name,
     }
     return render(request, "friends.html", context)
 

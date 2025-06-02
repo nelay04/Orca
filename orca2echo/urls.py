@@ -20,4 +20,5 @@ urlpatterns = [
     # path("direct-message", views.direct_message, name="direct-message"),
     path("send-message", views.send_message, name="send-message"),
     path("chat", views.direct_message, name="chat"),
+
 ]

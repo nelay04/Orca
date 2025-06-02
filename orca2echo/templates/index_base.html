@@ -50,8 +50,32 @@
       <a href="/friend-requests"><i class="fa-solid fa-user-edit"></i>Friend Requests</a>
       <a href="/friends"><i class="fa-solid fa-user-friends"></i>Friends</a>
       <a href="/sent-requests"><i class="fa-solid fa-user-clock"></i>Sent Requests</a>
-
     </div>
+
+    <div class="underscore_partial"></div>
+    <div class="menu">
+      <p>Profile</p>
+      <a href="#" onclick="showQRPopup(); return false;"><i class="fa-solid fa-qrcode"></i>Show QR</a>
+
+      <!-- QR Popup Modal -->
+      <div id="qrPopup" class="qr-popup" style="display:none;">
+        <div class="qr-popup-content">
+          <span class="close" onclick="closeQRPopup()">&times;</span>
+          <img src="{% static 'qr/' %}{{ img_name }}" alt="QR Code" class="qr-image" />
+        </div>
+      </div>
+
+      <script>
+        function showQRPopup() {
+          document.getElementById('qrPopup').style.display = 'flex';
+        }
+        function closeQRPopup() {
+          document.getElementById('qrPopup').style.display = 'none';
+        }
+      </script>
+    
+    </div>
+
     <div class="underscore_partial"></div>
     <div class="menu">
       <p>Theme Settings</p>
@@ -66,11 +90,13 @@
         </div>
       </div>
     </div>
+
     <div class="underscore_partial"></div>
     <div class="menu">
       <p class="danger_p">Danger Zone</p>
       <a class="danger" href="/logout"><i class="fa-solid fa-arrow-right-from-bracket"></i>Sign out</a>
     </div>
+
   </div>
   <!-- Overlay -->
   <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
