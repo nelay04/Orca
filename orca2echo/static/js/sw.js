@@ -8,7 +8,7 @@ self.addEventListener('fetch', function (event) {
   );
 });
 
-const CACHE_NAME = 'orca-cache-v1.0.1'; // increment this on update
+const CACHE_NAME = 'orca-cache-v1.0.2'; // increment this on update
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
