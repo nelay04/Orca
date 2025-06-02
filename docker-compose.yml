@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  django:
+    build: .
+    container_name: orca
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    volumes:
+      - .:/app
+
+
+# automatically restarts the container if:
+# The container crashes
+# The host machine reboots
+# The Docker service restarts
+
+
+# Run with docker-compose up -d
+# Stop with docker-compose down
+# To rebuild the image, use: docker-compose up --build -d
