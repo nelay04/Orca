@@ -9,3 +9,4 @@ uvicorn
 whitenoise
 channels 
 channels-redis
+uvicorn[standard]

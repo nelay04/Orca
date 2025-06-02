@@ -37,6 +37,42 @@
         navigator.serviceWorker.register("{% static 'js/sw.js' %}").then(() => console.log('Service Worker Registered'))
       }
     </script>
+    <script>
+      let deferredPrompt
+      const installBtn = document.createElement('button')
+      installBtn.textContent = 'Install App'
+      installBtn.style.display = 'none'
+      installBtn.style.position = 'fixed'
+      installBtn.style.bottom = '20px'
+      installBtn.style.right = '20px'
+      installBtn.style.padding = '10px 15px'
+      installBtn.style.backgroundColor = '#0a0a0a'
+      installBtn.style.color = 'white'
+      installBtn.style.border = 'none'
+      installBtn.style.borderRadius = '8px'
+      installBtn.style.zIndex = '9999'
+      
+      document.body.appendChild(installBtn)
+      
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault() // Stop automatic prompt
+        deferredPrompt = e
+        installBtn.style.display = 'block'
+      
+        installBtn.addEventListener('click', () => {
+          installBtn.style.display = 'none'
+          deferredPrompt.prompt()
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('User accepted install')
+            } else {
+              console.log('User dismissed install')
+            }
+            deferredPrompt = null
+          })
+        })
+      })
+    </script>
     {% block js %}
 
     {% endblock %}
