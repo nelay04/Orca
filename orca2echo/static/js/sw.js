@@ -7,3 +7,17 @@ self.addEventListener('fetch', function (event) {
     fetch(event.request).catch(() => caches.match(event.request))
   );
 });
+
+const CACHE_NAME = "my-app-cache-v2"; // increment this on update
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_NAME) return caches.delete(key);
+        })
+      )
+    )
+  );
+});
