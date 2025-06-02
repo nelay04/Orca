@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="{% static 'css/base.css' %}" />
 
     <!-- Head -->
-    <link rel="manifest" href="{% static 'manifest.json' %}" />
+    {% comment %} <link rel="manifest" href="{% static 'manifest.json' %}" /> {% endcomment %}
+    <link rel="manifest" href="{% static 'manifest.json' %}?v=1.0.1">
     <meta name="theme-color" content="#0a0a0a" />
     
 
