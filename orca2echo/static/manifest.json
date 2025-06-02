@@ -3,12 +3,12 @@
   "short_name": "Orca",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#0a0a0a",
-  "background_color": "#ffffff",
+  "theme_color": "#edf3f1",
+  "background_color": "#edf3f1",
   "icons": [
     {
       "src": "/static/icons/icon-192x192.png",
-      "sizes": "192x192",
+      "sizes": "288x288",
       "type": "image/png"
     },
     {
