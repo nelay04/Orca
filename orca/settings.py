@@ -23,7 +23,7 @@ SECRET_KEY="f4a7c0bf34ed7ae6e84f20ebe2e266a2"
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
-    'orca2echo.xyz',
+    'https://orca2echo.xyz',
     'l6l96bdt-8000.inc1.devtunnels.ms',
     'https://l6l96bdt-8000.inc1.devtunnels.ms',
     'localhost:8000',
@@ -139,3 +139,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+VAPID_PRIVATE_KEY = '8_XBkglE0LtR5AsKIkB9SSGRw7yBvJEGdFoTPUWBK_I='
+VAPID_PUBLIC_KEY = 'BIQrRJBufXM5n9GnhDOOins4u2VHzc_Yy3s1KdWqN4dTjBgmiZTZVbtXfJQL47RQXAYvixWBfyvHQIdWMTIUIj4='
