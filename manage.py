@@ -5,6 +5,8 @@ import sys
 
 # Prevent the creation of .pyc files and __pycache__ directories
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+sys.dont_write_bytecode = True  # Ensures Python does not write .pyc files
+
 
 def main():
     """Run administrative tasks."""

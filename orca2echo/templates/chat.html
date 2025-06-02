@@ -36,11 +36,13 @@
   </div>
   <div class="compose-form-container">
     <form id="composeForm" class="compose-form">
-      <input type="text" id="composeInput" name="message" placeholder="Type your message..." autocomplete="off" required />
+      <input type="text" id="composeInput" name="message" placeholder="Compose message..." autocomplete="off" required />
       <input type="hidden" id="friendId" name="friend_id" value="{{ friend_id }}" />
       {# This encrypted_conversation_id comes from your direct_message view context #}
       <input type="hidden" id="encryptedConversationId" value="{{ encrypted_conversation_id }}" />
-      <button type="submit">Send</button>
+      <button type="submit" class="send-btn" aria-label="Send" style="border-radius: 50px; height: 50px; width: 52px;">
+        <img src="{% static 'icons/paper.png' %}" alt="Send" style="width: 27px; height: 27px; rotate: 45deg; margin-left: -10px; margin-top: 1px;" />
+      </button>
     </form>
   </div>
   <script>

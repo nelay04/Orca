@@ -12,8 +12,13 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 import orca2echo.routing # We'll create this next
+import sys
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'orca.settings')
+
+# Prevent the creation of .pyc files and __pycache__ directories
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+sys.dont_write_bytecode = True  # Ensures Python does not write .pyc files
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
