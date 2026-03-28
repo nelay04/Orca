@@ -2,9 +2,9 @@
 set -e
 
 # Set default credentials (not secure)
-DJANGO_SUPERUSER_USERNAME=admin-rover
-DJANGO_SUPERUSER_EMAIL=info@sagerover.com
-DJANGO_SUPERUSER_PASSWORD=Sr2025
+DJANGO_SUPERUSER_USERNAME=admin-snow
+DJANGO_SUPERUSER_EMAIL=snowflake.2k04@gmail.com
+DJANGO_SUPERUSER_PASSWORD=admin-snow
 
 
 # Run Django migrations

@@ -9,9 +9,9 @@ import time
 import os
 from django.conf import settings  # type: ignore
 import base64
-import pytz # type: ignore
+import pytz  # type: ignore
 import re
-import qrcode
+import qrcode  # type: ignore
 from .mongo_service import (
     find_an_object,
 )
@@ -20,7 +20,7 @@ from .mongo_service import (
 def auth_user_data(request):
     try:
         if "full_name" not in request.session or "base64_string" not in request.session:
-            print("no data in session session")
+            # print("no data in session session")
             user_name = request.user.username
             user_data = find_an_object(
                 collection_name="user_profile",
@@ -36,7 +36,7 @@ def auth_user_data(request):
             request.session["base64_string"] = base64_string
             request.session["full_name"] = full_name
         else:
-            print("retrieving from session")
+            # print("retrieving from session")
             base64_string = request.session.get("base64_string")
             full_name = request.session.get("full_name")
 
@@ -47,15 +47,14 @@ def auth_user_data(request):
         }
         return auth_user_info
     except Exception as e:
+        print(f"Error in auth_user_data: {e}")  # Debugging print statement
         return None
-    
-    
+
+
 def generate_otp():
     # Generate a 6-digit random OTP between 000000 and 999999
     otp = random.randint(111111, 999999)
     return f"{otp:06d}"  # Formats the number to be 6 digits with leading zeros
-
-
 
 
 def extract_first_name(name: str) -> str:
@@ -63,23 +62,22 @@ def extract_first_name(name: str) -> str:
     Extracts the first name from a given name.
     If the name has only one word, returns the entire name.
     If the input is blank or contains only whitespace, returns an empty string.
-    
+
     Args:
         name (str): The full name of the person.
-    
+
     Returns:
         str: The first name, full name (if only one word), or an empty string for blank input.
     """
     # Strip whitespace and check if the name is blank
     if not name.strip():
         return ""
-    
+
     # Split the name into words
     name_parts = name.strip().split()
-    
+
     # Return the first part of the name
     return name_parts[0]
-
 
 
 def get_current_time_ist():
@@ -92,7 +90,6 @@ def get_current_time_ist():
     return formatted_time
 
 
-
 def generate_nanoseconds():
     # Step 2: Get the current time formatted as YYYYMMDDHHMMSS
     current_time = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -103,10 +100,11 @@ def generate_nanoseconds():
 
     return search_id
 
+
 def send_otp(otp, email, name):
     # Define the context for rendering the template
     context = {
-        "name":name,
+        "name": name,
         "otp": otp,
         "brand_name": "Orca",
         "dated": get_current_time_ist(),
@@ -121,11 +119,12 @@ def send_otp(otp, email, name):
     send_mail(
         "Orca",  # Subject of the email
         plain_message,  # Plain text content (optional fallback)
-        "snowflake.2k04@gmail.com",  # Sender's email address
+        settings.EMAIL_HOST_USER,  # Sender's email address
         [email],  # List of recipient email addresses
         fail_silently=False,
         html_message=html_message,  # HTML content of the email
     )
+
 
 def generate_search_id(nanoseconds):
     # Extract the middle portion by omitting the first 4 and last 6 digits
@@ -170,8 +169,6 @@ def generate_username(email, nanosecond):
     username = f"{clean_prefix}{nanosecond}"
     print(username)
     return username
-
-
 
 
 def get_demo_img_text(gender):
@@ -257,14 +254,17 @@ def generate_profile_qr(short_name, search_id):
     """
     Generates a unique QR code for the user's profile.
     The QR code is based on the current time in nanoseconds.
-    
+
     Returns:
         str: A string representing the generated QR code.
     """
+    if not short_name or not search_id:
+        return None
 
     img_name = (f"qr_{base64_encrypt(short_name)}_{base64_encrypt(search_id)}.png")
 
-    qr_dir = os.path.join(settings.BASE_DIR, f"{os.environ.get("APP_NAME")}", "static", "qr")
+    app_name = os.environ.get('APP_NAME', 'orca2echo')
+    qr_dir = os.path.join(settings.BASE_DIR, app_name, 'static', 'qr')
     qr_image_path = os.path.join(qr_dir, img_name)
     # Ensure the directory exists before checking for the file or saving
     os.makedirs(qr_dir, exist_ok=True)
@@ -274,7 +274,7 @@ def generate_profile_qr(short_name, search_id):
         enc_short_name = base64_encrypt(short_name)
         enc_search_id = base64_encrypt(search_id)
 
-        host = os.environ.get("HOST")
+        host = os.environ.get("APP_URL")
         redirect_url = f"{host}/search-profile?short-name={enc_short_name}&id-number={enc_search_id}"
 
         # Generate the QR code image for the redirect_url

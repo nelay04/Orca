@@ -2,25 +2,25 @@
 from django.http import HttpResponse, HttpResponseBadRequest  # type: ignore
 import json
 import re
-import sys
-import time
+# import sys
+# import time
 from datetime import datetime
 
 # Third-Party Library Imports
-import requests
+# import requests
 from django.contrib.auth import authenticate, login, logout  # type: ignore
-from django.contrib.auth.decorators import login_required, user_passes_test  # type: ignore
+from django.contrib.auth.decorators import login_required  # type: ignore
 from django.contrib.auth.models import User  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
-from django.core.mail import send_mail  # type: ignore
+# from django.core.mail import send_mail  # type: ignore
 from django.core.validators import validate_email  # type: ignore
-from django.http import Http404  # type: ignore
-from django.shortcuts import HttpResponse, redirect, render  # type: ignore
-from django.http import HttpResponseBadRequest  # type: ignore
+# from django.http import Http404  # type: ignore
+from django.shortcuts import redirect, render  # type: ignore
 from django.urls import reverse  # type: ignore
 
 # Local App Imports - Models
-from .models import FriendRequestList, Otp, UserData, UserProfile, FriendList, Conversation
+from .models import FriendRequestList, UserData, UserProfile, FriendList, Conversation
+# from .models import Otp
 
 # Local App Imports - Services
 from .services.auth_service import (
@@ -44,7 +44,7 @@ from .services.model_service import (
     add_otp,
     delete_otp_by_email,
     get_user_by_email,
-    get_user_by_username,
+    # get_user_by_username,
     retrieve_otp,
 )
 from .services.mongo_service import (
@@ -59,7 +59,8 @@ from .services.mongo_service import (
     find_friend_users_sorted_by_updated_at,
     get_conversation_by_id,
     get_conversation_id_for_friendship,
-    get_friend_id_by_conversation
+    get_friend_id_by_conversation,
+    get_latest_conversation
 )
 
 
@@ -89,6 +90,8 @@ def index(request):
 
         # If both user data and profile are found, append to the result list
         if searched_user_data and searched_user_profile:
+            _latest = get_latest_conversation(request.user.username, searched_user_data["user_name"])
+            latest_conversation_message, is_sender = _latest if _latest is not None else (None, False)
             friends_data.append(
                 {
                     "user_data": {
@@ -97,7 +100,9 @@ def index(request):
                         ),  # Converting ObjectId to string for JSON serializability
                         # "user_name": searched_user_data["user_name"],
                         "full_name": searched_user_data["full_name"],
-                        "encrypted_conversation_id": base64_encrypt(get_conversation_id_for_friendship( request.user.username,searched_user_data["user_name"]))
+                        "latest_conversation_message": latest_conversation_message,
+                        "is_sender": is_sender,
+                        "encrypted_conversation_id": base64_encrypt(get_conversation_id_for_friendship(request.user.username, searched_user_data["user_name"]))
                     },
                     "user_profile": {
                         "profile_picture": searched_user_profile["profile_picture"],
@@ -113,12 +118,23 @@ def index(request):
         search_criteria={
             "user_name": request.user.username},
     )
-    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+    img_name = generate_profile_qr(
+        user_data.get("short_name") if user_data else None,
+        user_data.get("search_id") if user_data else None,
+    )
+    if user_data:
+        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
+        _enc_si = base64_encrypt(user_data.get("search_id", ""))
+        _host = request.build_absolute_uri('/').rstrip('/')
+        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+    else:
+        profile_share_url = ""
 
     context = {
         "friends_data": friends_data,
         "auth_user_info": auth_user_info,
         "img_name": img_name,
+        "profile_share_url": profile_share_url,
     }
     auth_user_info = auth_user_data(request)
 
@@ -161,6 +177,7 @@ def signin(request):
             )
 
         # Find out name if available from mongodb
+        name = "user"
         try:
             searched_user_data = find_an_object(
                 collection_name="user_data",
@@ -172,9 +189,11 @@ def signin(request):
                 name = searched_user_data.get("full_name")
                 # add a space before name
                 name = " " + extract_first_name(name)
-        except:
-            name = " user"
+        except Exception as e:
+            print(f"Error in finding user data from MongoDB: {e}")  # Debugging print statement
+            name = "user"
 
+        print(f"Email: {email}, Name: {name}")  # Debugging print statement
         # Generate OTP
         otp = generate_otp()
 
@@ -223,9 +242,9 @@ def signin(request):
 
                 # Mongo user_data table
                 new_user_obj = UserData(email=email)
-                result = new_user_obj.save()
+                new_user_obj.save()
                 new_profile_picture_object = UserProfile(user_name=username)
-                result = new_profile_picture_object.save()
+                new_profile_picture_object.save()
 
                 # Save OTP and ID in session
                 request.session["email"] = email
@@ -236,6 +255,7 @@ def signin(request):
                 return render(request, "otp.html")
         except Exception as e:
             # Print error message for debugging
+            print(f"Error: {e}")
             return render(request, "signin.html", {"error": "An error occurred."})
     else:
         return render(request, "signin.html")
@@ -260,7 +280,7 @@ def verify_otp(request):
             user = get_user_data_by_email(
                 collection_name="user_data", email=email)
 
-            if user.get("is_new_user"):
+            if user is None or user.get("is_new_user"):
                 request.session["original_otp"] = original_otp
                 # Redirect to OTP page or render the OTP template
                 # Redirect to the home page
@@ -380,7 +400,7 @@ def signup(request):
         )
 
         demo_img_text = get_demo_img_text(gender)
-        result_id = update_fields_by_user_name(
+        update_fields_by_user_name(
             collection_name="user_profile",
             user_name=username,
             updates={"profile_picture": demo_img_text},
@@ -426,6 +446,9 @@ def add_friend(request):
             },
         )
 
+        if searched_receiver_data is None:
+            return redirect(reverse('orca'))
+
         # get friend request data from friend_request_list table
         user_name_receiver = searched_receiver_data.get("user_name")
         if_friend_request = find_an_object(
@@ -439,7 +462,7 @@ def add_friend(request):
         # check if there is inactive request then activate that request
         if if_friend_request:
             if if_friend_request.get("is_active") is False:
-                update_result = update_objects(
+                update_objects(
                     collection_name="friend_request_list",
                     search_criteria={
                         "user_name_sender": request.user.username,
@@ -462,7 +485,7 @@ def add_friend(request):
                 request_time=get_current_time_ist(),
                 request_count=1,
             )
-            result = new_request_object.save()
+            new_request_object.save()
 
         # redirect to profile card page
         redirect_url = reverse('search-profile') + f'?short-name={
@@ -475,11 +498,28 @@ def add_friend(request):
 
     else:
         # Search-for-user form
+        cur_user_data = find_an_object(
+            collection_name="user_data",
+            search_criteria={"user_name": request.user.username},
+        )
+        img_name = generate_profile_qr(
+            cur_user_data.get("short_name") if cur_user_data else None,
+            cur_user_data.get("search_id") if cur_user_data else None,
+        )
+        if cur_user_data:
+            _enc_sn = base64_encrypt(cur_user_data.get("short_name", ""))
+            _enc_si = base64_encrypt(cur_user_data.get("search_id", ""))
+            _host = request.build_absolute_uri('/').rstrip('/')
+            profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+        else:
+            profile_share_url = ""
         return render(
             request,
             "add_friend.html",
             {
                 "auth_user_info": auth_user_info,
+                "img_name": img_name,
+                "profile_share_url": profile_share_url,
             },
         )
 
@@ -496,6 +536,23 @@ def search_profile(request):
 
         # get user data
         auth_user_info = auth_user_data(request)
+
+        # fetch current user's data for QR / share link
+        cur_user_data = find_an_object(
+            collection_name="user_data",
+            search_criteria={"user_name": request.user.username},
+        )
+        img_name = generate_profile_qr(
+            cur_user_data.get("short_name") if cur_user_data else None,
+            cur_user_data.get("search_id") if cur_user_data else None,
+        )
+        if cur_user_data:
+            _enc_sn = base64_encrypt(cur_user_data.get("short_name", ""))
+            _enc_si = base64_encrypt(cur_user_data.get("search_id", ""))
+            _host = request.build_absolute_uri('/').rstrip('/')
+            profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+        else:
+            profile_share_url = ""
 
         # get receiver data from user_data table
         searched_user_data = find_an_object(
@@ -519,6 +576,8 @@ def search_profile(request):
                     "auth_user_info": auth_user_info,
                     "oops_string": oops_string,
                     "oops_dark_string": oops_dark_string,
+                    "img_name": img_name,
+                    "profile_share_url": profile_share_url,
                 },
             )
 
@@ -610,6 +669,8 @@ def search_profile(request):
                 "its_me": its_me,
                 "short_name_enc": short_name_enc,
                 "id_number_enc": id_number_enc,
+                "img_name": img_name,
+                "profile_share_url": profile_share_url,
             },
         )
 
@@ -637,7 +698,7 @@ def cancel_request(request):
             redirect_url = reverse('sent-requests')
 
         # get current user data
-        auth_user_info = auth_user_data(request)
+        auth_user_data(request)
 
         # get receiver data from user_data table
         searched_receiver_data = find_an_object(
@@ -647,6 +708,9 @@ def cancel_request(request):
                 "search_id": receiver_id_number,
             },
         )
+
+        if searched_receiver_data is None:
+            return redirect(reverse('orca'))
 
         # get request object data
         if_friend_request = find_an_object(
@@ -662,7 +726,7 @@ def cancel_request(request):
             # check if request is active
             if if_friend_request.get("is_active") is True:
                 # deactivate status and cancel request
-                update_result = update_objects(
+                update_objects(
                     collection_name="friend_request_list",
                     search_criteria={
                         "user_name_sender": request.user.username,
@@ -761,7 +825,17 @@ def friend_requests(request):
         search_criteria={
             "user_name": request.user.username},
     )
-    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+    img_name = generate_profile_qr(
+        user_data.get("short_name") if user_data else None,
+        user_data.get("search_id") if user_data else None,
+    )
+    if user_data:
+        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
+        _enc_si = base64_encrypt(user_data.get("search_id", ""))
+        _host = request.build_absolute_uri('/').rstrip('/')
+        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+    else:
+        profile_share_url = ""
 
     context = {
         "friend_request_data": friend_request_data,
@@ -769,6 +843,7 @@ def friend_requests(request):
         "its_me": False,
         "auth_user_info": auth_user_info,
         "img_name": img_name,
+        "profile_share_url": profile_share_url,
     }
     return render(request, "friend_requests.html", context)
 
@@ -848,7 +923,17 @@ def sent_requests(request):
         search_criteria={
             "user_name": request.user.username},
     )
-    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+    img_name = generate_profile_qr(
+        user_data.get("short_name") if user_data else None,
+        user_data.get("search_id") if user_data else None,
+    )
+    if user_data:
+        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
+        _enc_si = base64_encrypt(user_data.get("search_id", ""))
+        _host = request.build_absolute_uri('/').rstrip('/')
+        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+    else:
+        profile_share_url = ""
 
     context = {
         "friend_request_data": friend_request_data,
@@ -856,6 +941,7 @@ def sent_requests(request):
         "its_me": False,
         "auth_user_info": auth_user_info,
         "img_name": img_name,
+        "profile_share_url": profile_share_url,
     }
     return render(request, "sent_requests.html", context)
 
@@ -878,6 +964,9 @@ def response(request):
                 },
             )
 
+            if searched_sender_data is None:
+                return redirect(reverse('friend-requests'))
+
             # get request object data
             if_friend_request = find_an_object(
                 collection_name="friend_request_list",
@@ -892,7 +981,7 @@ def response(request):
                 # check if request is active
                 if if_friend_request.get("is_active") is True:
                     # deactivate status and cancel request
-                    update_result = update_objects(
+                    update_objects(
                         collection_name="friend_request_list",
                         search_criteria={
                             "user_name_receiver": request.user.username,
@@ -920,6 +1009,9 @@ def response(request):
                 },
             )
 
+            if searched_sender_data is None:
+                return redirect(reverse('friend-requests'))
+
             # get request object data
             if_friend_request = find_an_object(
                 collection_name="friend_request_list",
@@ -934,7 +1026,7 @@ def response(request):
                 # check if request is active
                 if if_friend_request.get("is_active") is True:
                     # deactivate status and cancel request
-                    update_result = update_objects(
+                    update_objects(
                         collection_name="friend_request_list",
                         search_criteria={
                             "user_name_receiver": request.user.username,
@@ -958,8 +1050,9 @@ def response(request):
                     user_1=request.user.username,
                     user_2=searched_sender_data.get("user_name"),
                     created_at=get_current_time_ist(),
+                    conversation_id=request.user.username + "_" + searched_sender_data.get("user_name"),
                 )
-                result = new_friend.save()
+                new_friend.save()
             friendship = find_friendship(
                 request.user.username, searched_sender_data.get("user_name"))
 
@@ -1043,13 +1136,24 @@ def friends(request):
         search_criteria={
             "user_name": request.user.username},
     )
-    img_name = generate_profile_qr(user_data.get("short_name"), user_data.get("search_id"))
+    img_name = generate_profile_qr(
+        user_data.get("short_name") if user_data else None,
+        user_data.get("search_id") if user_data else None,
+    )
+    if user_data:
+        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
+        _enc_si = base64_encrypt(user_data.get("search_id", ""))
+        _host = request.build_absolute_uri('/').rstrip('/')
+        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+    else:
+        profile_share_url = ""
 
     context = {
         "friend_request_data": friends_data,
         # You can add a logic here to determine if the user is the sender of the request
         "auth_user_info": auth_user_info,
         "img_name": img_name,
+        "profile_share_url": profile_share_url,
     }
     return render(request, "friends.html", context)
 
@@ -1061,6 +1165,10 @@ def direct_message(request):
         # friend_id = request.POST.get('user-id')
         encoded_conversation_id = request.GET.get('with')
         conversation_id = base64_decrypt(encoded_conversation_id)
+
+        # Guard against missing or invalid conversation_id
+        if not conversation_id:
+            return redirect(reverse('orca'))
 
         # Check if conversation_id contains the full request.user.username
         if request.user.username not in conversation_id:
@@ -1075,8 +1183,7 @@ def direct_message(request):
         friend_id = get_friend_id_by_conversation(conversation_id, request.user.username)
 
         if conversation_id:
-            conversations = get_conversation_by_id(conversation_id,
-                request.user.username)
+            conversations = get_conversation_by_id(conversation_id, request.user.username)
             # Parse and sort by datetime (oldest first)
 
             def parse_dt(msg):
@@ -1107,16 +1214,34 @@ def direct_message(request):
             auth_user_info = auth_user_data(request)
             # Get the first name of the friend
             searched_user_data = find_an_object(
-            collection_name="user_data",
+                collection_name="user_data",
                 search_criteria={
                     "user_name": friend_id,
                 },
             )
             first_name = searched_user_data['full_name'].split(
             )[0] if searched_user_data and 'full_name' in searched_user_data else ''
-            encrypted_conversation_id = get_conversation_id_for_friendship( request.user.username,friend_id)
+            encrypted_conversation_id = get_conversation_id_for_friendship(request.user.username, friend_id)
 
-            print(conversations_sorted)
+            # Fetch user data for the sender of the friend request
+            user_data = find_an_object(
+                collection_name="user_data",
+                search_criteria={
+                    "user_name": request.user.username},
+            )
+            img_name = generate_profile_qr(
+                user_data.get("short_name") if user_data else None,
+                user_data.get("search_id") if user_data else None,
+            )
+            if user_data:
+                _enc_sn = base64_encrypt(user_data.get("short_name", ""))
+                _enc_si = base64_encrypt(user_data.get("search_id", ""))
+                _host = request.build_absolute_uri('/').rstrip('/')
+                profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+            else:
+                profile_share_url = ""
+
+            # print(conversations_sorted)
             return render(
                 request,
                 "chat.html",
@@ -1125,15 +1250,15 @@ def direct_message(request):
                     "first_name": first_name,
                     "messages": conversations_sorted,
                     "auth_user_info": auth_user_info,
-                    "encrypted_conversation_id":encrypted_conversation_id
+                    "encrypted_conversation_id": encrypted_conversation_id,
+                    "img_name": img_name,
+                    "profile_share_url": profile_share_url,
                 }
             )
         else:
             return HttpResponseBadRequest("User ID is missing.")
     else:
         return HttpResponseBadRequest("Invalid request method.")
-
-
 
 
 @login_required(login_url="signin")
@@ -1149,11 +1274,11 @@ def send_message(request):
                 request.user.username, friend_id)
 
             conversation_document = Conversation(  # Create a dictionary for the user data
-                conversation_id= conversation_id,
-                sender= request.user.username,
-                message= message,
-                receiver= friend_id,
-                created_at= created_at,
+                conversation_id=conversation_id,
+                sender=request.user.username,
+                message=message,
+                receiver=friend_id,
+                created_at=created_at,
             )
             result = conversation_document.save()
             if not result:

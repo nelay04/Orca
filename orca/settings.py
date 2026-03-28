@@ -12,23 +12,21 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv  # type: ignore
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Quick-start development settings - unsuitable for production
-# SECRET_KEY = '***REMOVED***'
-SECRET_KEY="f4a7c0bf34ed7ae6e84f20ebe2e266a2"
+# Load .env from project root, regardless of CWD
+load_dotenv(BASE_DIR / '.env', override=True)
 
-DEBUG = True
+# Quick-start development settings - unsuitable for production
+SECRET_KEY = os.environ.get('SECRET_KEY')
+
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = [
-    'https://orca2echo.xyz',
-    'l6l96bdt-8000.inc1.devtunnels.ms',
-    'https://l6l96bdt-8000.inc1.devtunnels.ms',
-    'localhost:8000',
-    'http://localhost:8000',
-]
+_app_url = os.environ.get('APP_URL')
+CSRF_TRUSTED_ORIGINS = [_app_url] if _app_url else []
 
 # Application definition
 INSTALLED_APPS = [
@@ -113,17 +111,12 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'coffeecold97@gmail.com'
-# EMAIL_HOST_PASSWORD = '***REMOVED***'  # Update with actual app password securely
 
-EMAIL_HOST_USER = 'snowflake.2k04@gmail.com'
-EMAIL_HOST_PASSWORD = '***REMOVED***'  # Gmail -> Manage your Google acc -> app passwords
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
 # In settings.py
 LOGIN_URL = 'signin'  # Custom login page
-
-# Base directory (adjust if necessary)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Media files settings
 MEDIA_URL = '/media/'  # URL prefix for serving media files
@@ -135,10 +128,10 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)], # Your Redis server address
+            "hosts": [('127.0.0.1', 6379)],     # Your Redis server address
         },
     },
 }
 
-VAPID_PRIVATE_KEY = '8_XBkglE0LtR5AsKIkB9SSGRw7yBvJEGdFoTPUWBK_I='
-VAPID_PUBLIC_KEY = 'BIQrRJBufXM5n9GnhDOOins4u2VHzc_Yy3s1KdWqN4dTjBgmiZTZVbtXfJQL47RQXAYvixWBfyvHQIdWMTIUIj4='
+VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY')
+VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY')

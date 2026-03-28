@@ -1,6 +1,10 @@
-import pymongo # type: ignore
+import os
+import pymongo  # type: ignore
+from dotenv import load_dotenv
 
-url = "mongodb+srv:***REMOVED***"
+load_dotenv()
+
+url = os.environ.get('MONGO_URL')
 
 client = pymongo.MongoClient(url)
 db = client['orca']

@@ -1,5 +1,5 @@
-from django.urls import re_path
-from . import consumers
+from django.urls import re_path  # type: ignore
+from . import consumers  # type: ignore
 
 websocket_urlpatterns = [
     # The encrypted_conversation_id is captured from the URL.

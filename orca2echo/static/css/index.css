@@ -47,3 +47,25 @@ font-weight: 300;
     color: inherit !important;
     background: none !important;
 }
+
+.preview_message_container{
+    height: fit-content;
+    width: 100%;
+    display: flex !important;
+    gap: 2px;
+    /* flex-direction: column; */
+}
+.preview_icon{
+    height: 24px;
+    width: 24px;
+    /* background-color: red; */
+    margin-top: -3px;
+}
+.preview_message{
+  display: inline-block;
+  max-width: 180px; /* adjust based on your layout */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-items: center;
+}

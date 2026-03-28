@@ -354,3 +354,29 @@ label[for=btn] {
     font-size: 1.15rem;
     color: var(--nav-p-color);
 }
+
+.qr-popup {
+    position: fixed;
+    z-index: 9999;
+    left: 0; top: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+}
+.qr-popup-content {
+    background: #fff;
+    padding: 24px 32px;
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+    position: relative;
+    text-align: center;
+}
+.qr-popup .close {
+    position: absolute;
+    top: 8px; right: 16px;
+    font-size: 28px;
+    cursor: pointer;
+}
+.qr-image {
+    max-width: 220px;
+    max-height: 220px;
+}

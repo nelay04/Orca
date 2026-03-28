@@ -1,7 +1,7 @@
 from django.db import models  # type: ignore
 from db_connection import db
 from pymongo import errors  # type: ignore
-from bson import ObjectId  # type: ignore
+# from bson import ObjectId  # type: ignore
 
 user_data = db["user_data"]
 user_profile = db["user_profile"]
@@ -91,7 +91,6 @@ class UserProfile:
             return False
 
 
-
 class FriendRequestList:
     def __init__(
         self,
@@ -148,7 +147,6 @@ class FriendRequestList:
             return False
 
 
-
 class FriendList:
     def __init__(
         self,
@@ -157,6 +155,7 @@ class FriendList:
         is_active: bool = True,
         created_at: str = None,
         updated_at: str = None,
+        conversation_id: str = None,
         metadata: dict = None,    # Additional friendship details
     ):
         self.user_1 = user_1
@@ -164,6 +163,7 @@ class FriendList:
         self.is_active = is_active
         self.created_at = created_at
         self.updated_at = updated_at
+        self.conversation_id = conversation_id
         self.metadata = metadata
 
     def save(self):
@@ -173,6 +173,7 @@ class FriendList:
             "is_active": self.is_active,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "conversation_id": self.conversation_id,
             "metadata": self.metadata,
         }
         try:

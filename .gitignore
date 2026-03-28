@@ -4,3 +4,10 @@ __pycache__
 db.sqlite3
 nohup.out
 orca2echo/static/qr/
+node_modules
+/static/qr/
+None/
+staticfiles/
+*.pyc
+*.pyo
+chat_connections.log

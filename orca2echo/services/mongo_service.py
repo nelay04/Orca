@@ -1,9 +1,12 @@
 from db_connection import db
-from pymongo import errors  # type: ignore
+# from pymongo import errors  # type: ignore
 from bson import ObjectId  # type: ignore
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any, List, Tuple
+from datetime import datetime
 
 # result_id = update_fields(email="user@example.com",updates={"full_name": "Snow Flake", "dob": "2024-01-31"})
+
+
 def update_fields_by_email(
     collection_name: str, email: str, updates: dict
 ):  # Update user document(s) by email with multiple fields.
@@ -69,12 +72,7 @@ def get_user_by_id(
         return None
 
 
-
-
-
-
 # These functions are for any collection except friend_list      >>>----------------------------------------------------------------->
-
 
 def find_an_object(collection_name: str, search_criteria: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
@@ -108,7 +106,6 @@ def find_an_object(collection_name: str, search_criteria: Dict[str, Any]) -> Opt
         return None
 
 
-
 def find_all_objects(collection_name: str, search_criteria: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     """
     Search for all objects in a MongoDB collection based on search criteria.
@@ -140,10 +137,9 @@ def find_all_objects(collection_name: str, search_criteria: Dict[str, Any]) -> O
         return None
 
 
-
 def update_objects(
     collection_name: str, 
-    search_criteria: Dict[str, Any], 
+    search_criteria: Dict[str, Any],
     update_data: Dict[str, Any]
 ) -> Optional[str]:
     """
@@ -167,24 +163,22 @@ def update_objects(
     try:
         # Access the specified collection
         collection = db[collection_name]  # Assumes `db` is a valid MongoDB database instance
-        
+
         # Perform the update
         result = collection.update_many(  # Or use update_one if only one document needs updating
             search_criteria,
             {"$set": update_data}  # Use the $set operator to update specific fields
         )
-        
+
         if result.matched_count > 0:
             return "Update successful"
         else:
             return "No documents matched the criteria"
-    
+
     except Exception as e:
         # Log the error
         print(f"Error occurred while updating objects in collection '{collection_name}': {e}")
         return None
-
-
 
 
 # These functions are only for friend_list      >>>----------------------------------------------------------------->
@@ -223,9 +217,6 @@ def find_friendship(user1: str, user2: str) -> Optional[Dict[str, Any]]:
         # Log the error (replace print with proper logging in production)
         print(f"Error occurred while searching for friendship: {e}")
         return None
-    
-
-
 
 
 def find_friend_users_alphabetically_sorted(user_name: str) -> List[dict]:
@@ -335,9 +326,6 @@ def find_friend_users_sorted_by_updated_at(user_name: str) -> List[dict]:
         return []
 
 
-
-
-
 def get_conversation_by_id(conversation_id: str, user_id: str) -> List[dict]:
     """
     Retrieve conversation messages from the 'conversations' collection using the given conversation_id.
@@ -402,7 +390,7 @@ def get_conversation_id_for_friendship(user_id: str, friend_id: str) -> Optional
     except Exception as e:
         print(f"Error occurred while fetching conversation_id: {e}")
         return None
-    
+
 
 def get_friend_id_by_conversation(conversation_id: str, user_id: str) -> Optional[str]:
     """
@@ -436,4 +424,49 @@ def get_friend_id_by_conversation(conversation_id: str, user_id: str) -> Optiona
             return None
     except Exception as e:
         print(f"Error occurred while fetching friend_id: {e}")
+        return None
+
+
+def get_latest_conversation(user_id: str, friend_id: str) -> Optional[Tuple[str, bool]]:
+    """
+    Fetches the latest conversation message between two users.
+    Args:
+        user_id (str): The ID of the current user.
+        friend_id (str): The ID of the friend user.
+    Returns:
+        Optional[Tuple[str, bool]]: 
+            - A tuple containing the latest message (str) and a boolean indicating if the current user is the sender.
+            - Returns None if no conversation is found or an error occurs.
+    Raises:
+        Exception: Prints an error message if an exception occurs during database access.
+    Notes:
+        - The function searches for a conversation between the two users, regardless of the order of their IDs in the conversation ID.
+        - The most recent message is determined by the 'created_at' field in descending order.
+    """
+    try:
+        conversations_collection = db["conversations"]
+        search_criteria = {
+            "$or": [
+                {"conversation_id": user_id + '_' + friend_id},
+                {"conversation_id": friend_id + '_' + user_id},
+            ]
+        }
+        # Fetch all matching messages
+        messages = list(conversations_collection.find(search_criteria))
+        if not messages:
+            return None
+
+        # Parse the created_at string to datetime for sorting
+        def parse_created_at(msg):
+            try:
+                # Adjust the format string if your format is different
+                return datetime.strptime(msg.get("created_at", ""), "%d-%m-%Y %H:%M:%S:%f")
+            except Exception:
+                return datetime.min
+
+        messages.sort(key=parse_created_at, reverse=True)
+        latest_message = messages[0]
+        return (latest_message.get("message"), True if latest_message.get("sender") == user_id else False)
+    except Exception as e:
+        print(f"Error occurred while fetching latest message: {e}")
         return None

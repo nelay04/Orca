@@ -1,8 +1,8 @@
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
-from asgiref.sync import sync_to_async # For interacting with synchronous Django ORM
-from django.utils.dateparse import parse_datetime
-from datetime import datetime
+from channels.generic.websocket import AsyncWebsocketConsumer   # type: ignore
+from asgiref.sync import sync_to_async # For interacting with synchronous Django ORM # type: ignore
+from django.utils.dateparse import parse_datetime # type: ignore
+from datetime import datetime # type: ignore
 
 # Assuming your Conversation model and get_conversation_id_for_friendship are accessible
 # You will need to adjust these imports based on your actual project structure.
@@ -52,7 +52,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         await self.accept()
-        print(f"User {self.user.username} connected to room {self.room_group_name}")
+        # print(f"User {self.user.username} connected to room {self.room_group_name}")
+        # Maintain a log of connections
+        with open("chat_connections.log", "a") as log_file:
+            log_file.write(
+            f"{datetime.now().strftime('%d-%m-%Y %H:%M:%S')} - CONNECT    - User: {self.user.username}  Room: {self.room_group_name}\n"
+            )
 
 
     async def disconnect(self, close_code):
@@ -62,7 +67,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 self.channel_name
             )
-            print(f"User {self.user.username} disconnected from room {self.room_group_name}")
+            # print(f"User {self.user.username} disconnected from room {self.room_group_name}")
+            # Maintain a log of disconnections
+            with open("chat_connections.log", "a") as log_file:
+                log_file.write(
+                f"{datetime.now().strftime('%d-%m-%Y %H:%M:%S')} - DISCONNECT - User: {self.user.username}  Room: {self.room_group_name}\n"
+                )
 
 
     # Receive message from WebSocket

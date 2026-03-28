@@ -2,7 +2,7 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 # Prevent the creation of .pyc files and __pycache__ directories
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
@@ -17,7 +17,7 @@ def main():
 
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'orca.settings')
     try:
-        from django.core.management import execute_from_command_line # type: ignore
+        from django.core.management import execute_from_command_line    # type: ignore
     except ImportError as exc:
         raise ImportError(
             "Couldn't import Django. Are you sure it's installed and "

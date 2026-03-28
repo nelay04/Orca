@@ -11,6 +11,6 @@ channels
 channels-redis
 uvicorn[standard]
 pywebpush
-dotenv
+python-dotenv
 qrcode
 pillow
