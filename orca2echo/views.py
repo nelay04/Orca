@@ -626,11 +626,18 @@ def search_profile(request):
             },
         )
 
+        # print("Friend Request Object:", if_friend_request)  # Debugging print statement
+        # print("Reverse Friend Request Object:", if_friends_reverse)  # Debugging print statement
+
         if if_friends_reverse:
             if if_friends_reverse.get("is_accepted") is True:
                 btn_text = "You're Friends"
                 btn_color = "#00e800"
                 action = "/"
+            if if_friends_reverse.get("is_active") is True and if_friends_reverse.get("is_accepted") is False:
+                btn_text = "Accept Request"
+                btn_color = "#00e800"
+                action = "/response"
         else:
             # if request object is available
             if if_friend_request:
