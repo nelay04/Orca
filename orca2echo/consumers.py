@@ -1,18 +1,16 @@
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer   # type: ignore
 from asgiref.sync import sync_to_async # For interacting with synchronous Django ORM # type: ignore
 from django.utils.dateparse import parse_datetime # type: ignore
 from datetime import datetime # type: ignore
 
-# Assuming your Conversation model and get_conversation_id_for_friendship are accessible
-# You will need to adjust these imports based on your actual project structure.
-# These are likely in orca2echo.views or a utility file within orca2echo.
-# from .views import Conversation, get_conversation_id_for_friendship
+logger = logging.getLogger(__name__)
 
 # Example of adapting your existing synchronous functions for async context
 @sync_to_async
 def save_message_to_db(conversation_id, sender_username, message_text, receiver_username, created_at_str):
-    from .views import Conversation # Assuming Conversation class is in views.py
+    from .models import Conversation
     # Your Conversation class and its save method are used here.
     # Ensure it's imported correctly and works as expected.
     conversation_document = Conversation(
@@ -26,7 +24,7 @@ def save_message_to_db(conversation_id, sender_username, message_text, receiver_
 
 @sync_to_async
 def get_conv_id(user1, user2):
-    from .views import get_conversation_id_for_friendship # Assuming this function is in views.py
+    from .services.mongo_service import get_conversation_id_for_friendship
     return get_conversation_id_for_friendship(user1, user2)
 
 
@@ -52,12 +50,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         await self.accept()
-        # print(f"User {self.user.username} connected to room {self.room_group_name}")
-        # Maintain a log of connections
-        with open("chat_connections.log", "a") as log_file:
-            log_file.write(
-            f"{datetime.now().strftime('%d-%m-%Y %H:%M:%S')} - CONNECT    - User: {self.user.username}  Room: {self.room_group_name}\n"
-            )
+        logger.info(f"CONNECT    - User: {self.user.username}  Room: {self.room_group_name}")
 
 
     async def disconnect(self, close_code):
@@ -67,12 +60,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 self.channel_name
             )
-            # print(f"User {self.user.username} disconnected from room {self.room_group_name}")
-            # Maintain a log of disconnections
-            with open("chat_connections.log", "a") as log_file:
-                log_file.write(
-                f"{datetime.now().strftime('%d-%m-%Y %H:%M:%S')} - DISCONNECT - User: {self.user.username}  Room: {self.room_group_name}\n"
-                )
+            logger.info(f"DISCONNECT - User: {self.user.username}  Room: {self.room_group_name}")
 
 
     # Receive message from WebSocket
@@ -86,14 +74,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         sender_username = self.user.username
 
         if not message or not friend_id:
-            print("Missing message or friend_id in WebSocket message")
+            logger.error("Missing message or friend_id in WebSocket message")
             return
 
         # Get the actual conversation ID for database saving
         # This uses the same logic as your HTTP views.
         conversation_id_actual = await get_conv_id(sender_username, friend_id)
         if not conversation_id_actual:
-            print(f"Could not determine conversation ID between {sender_username} and {friend_id}")
+            logger.error(f"Could not determine conversation ID between {sender_username} and {friend_id}")
             # Optionally send an error back to the client
             await self.send(text_data=json.dumps({
                 'error': 'Failed to identify conversation.'
@@ -110,7 +98,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         if not save_successful:
-            print(f"Failed to save message from {sender_username} to {friend_id} for conversation {conversation_id_actual}")
+            logger.error(f"Failed to save message from {sender_username} to {friend_id} for conversation {conversation_id_actual}")
             # Optionally send an error back to the client
             await self.send(text_data=json.dumps({
                 'error': 'Message could not be saved.'

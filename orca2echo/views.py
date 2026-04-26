@@ -20,7 +20,10 @@ from django.urls import reverse  # type: ignore
 
 # Local App Imports - Models
 from .models import FriendRequestList, UserData, UserProfile, FriendList, Conversation
-# from .models import Otp
+import logging
+from .forms import SigninForm, SignupForm
+
+logger = logging.getLogger(__name__)
 
 # Local App Imports - Services
 from .services.auth_service import (
@@ -39,6 +42,7 @@ from .services.auth_service import (
     send_otp,
     extract_first_name,
     generate_profile_qr,
+    get_profile_share_context,
 )
 from .services.model_service import (
     add_otp,
@@ -112,29 +116,12 @@ def index(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
-    # Fetch user data for the sender of the friend request
-    user_data = find_an_object(
-        collection_name="user_data",
-        search_criteria={
-            "user_name": request.user.username},
-    )
-    img_name = generate_profile_qr(
-        user_data.get("short_name") if user_data else None,
-        user_data.get("search_id") if user_data else None,
-    )
-    if user_data:
-        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
-        _enc_si = base64_encrypt(user_data.get("search_id", ""))
-        _host = request.build_absolute_uri('/').rstrip('/')
-        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
-    else:
-        profile_share_url = ""
+    share_context = get_profile_share_context(request.user.username, request)
 
     context = {
         "friends_data": friends_data,
         "auth_user_info": auth_user_info,
-        "img_name": img_name,
-        "profile_share_url": profile_share_url,
+        **share_context,
     }
     auth_user_info = auth_user_data(request)
 
@@ -162,19 +149,12 @@ def signin(request):
         # Redirect to a different page (e.g., home or dashboard)
         return redirect("orca")
     if request.method == "POST":
-        email = request.POST.get("email")
+        form = SigninForm(request.POST)
+        if not form.is_valid():
+            error_message = next(iter(form.errors.values()))[0]
+            return render(request, "signin.html", {"error": error_message})
 
-        if not email:  # Check if email is not provided
-            return render(request, "signin.html", {"error": "Email is required."})
-
-        # Validate the email format using Django's EmailValidator
-        try:
-            validate_email(email)  # Validate email format
-        except ValidationError:
-            return render(
-                request, "signin.html", {
-                    "error": "Please enter a valid email address."}
-            )
+        email = form.cleaned_data.get("email")
 
         # Find out name if available from mongodb
         name = "user"
@@ -189,11 +169,11 @@ def signin(request):
                 name = searched_user_data.get("full_name")
                 # add a space before name
                 name = " " + extract_first_name(name)
-        except Exception as e:
-            print(f"Error in finding user data from MongoDB: {e}")  # Debugging print statement
+        except Exception:
+            logger.exception("Error in finding user data from MongoDB")
             name = "user"
 
-        print(f"Email: {email}, Name: {name}")  # Debugging print statement
+        logger.info(f"Email: {email}, Name: {name}")
         # Generate OTP
         otp = generate_otp()
 
@@ -253,9 +233,8 @@ def signin(request):
 
                 # Redirect to OTP page or render the OTP template
                 return render(request, "otp.html")
-        except Exception as e:
-            # Print error message for debugging
-            print(f"Error: {e}")
+        except Exception:
+            logger.exception("Error during signin logic")
             return render(request, "signin.html", {"error": "An error occurred."})
     else:
         return render(request, "signin.html")
@@ -321,65 +300,14 @@ def signup(request):
         search_id = request.session.get("search_id")
         original_otp = request.session.get("original_otp")
 
-        full_name = request.POST.get("full_name")
-        gender = request.POST.get("gender")
-        dob = request.POST.get("dob")
-        # Validate `full_name`
-        if not full_name:
-            return render(request, "signup.html", {"error": "Full name is required."})
+        form = SignupForm(request.POST)
+        if not form.is_valid():
+            error_message = next(iter(form.errors.values()))[0]
+            return render(request, "signup.html", {"error": error_message})
 
-        if not re.match(r"^[A-Za-z ]+$", full_name):
-            return render(
-                request,
-                "signup.html",
-                {"error": "Name must only contain letters (A-Z or a-z) and spaces."},
-            )
-
-        if len(full_name) < 2:
-            return render(
-                request,
-                "signup.html",
-                {"error": "Full name must be at least 2 characters long."},
-            )
-        if not full_name.replace(" ", "").isalpha():
-            return render(
-                request,
-                "signup.html",
-                {"error": "Full name should only contain alphabets."},
-            )
-
-        # Validate `gender`
-        if not gender:
-            return render(request, "signup.html", {"error": "Gender is required."})
-        if gender not in ["male", "female", "other", "prefer_not_to_say"]:
-            return render(
-                request,
-                "signup.html",
-                {
-                    "error": "Gender must be one of 'Male', 'Female','Other' or 'prefer not to say'."
-                },
-            )
-
-        # Validate `dob` (Date of Birth)
-        if not dob:
-            return render(
-                request, "signup.html", {"error": "Date of birth is required."}
-            )
-        try:
-            # Assuming `dob` is in the format 'YYYY-MM-DD'
-            dob_date = datetime.strptime(dob, "%Y-%m-%d")
-            if dob_date > datetime.now():
-                return render(
-                    request,
-                    "signup.html",
-                    {"error": "Date of birth cannot be in the future."},
-                )
-        except ValueError:
-            return render(
-                request,
-                "signup.html",
-                {"error": "Invalid date of birth format. Use 'YYYY-MM-DD'."},
-            )
+        full_name = form.cleaned_data.get("full_name")
+        gender = form.cleaned_data.get("gender")
+        dob = str(form.cleaned_data.get("dob"))
 
         # If validation passes, proceed with your logic
         # Render the page or redirect as necessary
@@ -498,28 +426,14 @@ def add_friend(request):
 
     else:
         # Search-for-user form
-        cur_user_data = find_an_object(
-            collection_name="user_data",
-            search_criteria={"user_name": request.user.username},
-        )
-        img_name = generate_profile_qr(
-            cur_user_data.get("short_name") if cur_user_data else None,
-            cur_user_data.get("search_id") if cur_user_data else None,
-        )
-        if cur_user_data:
-            _enc_sn = base64_encrypt(cur_user_data.get("short_name", ""))
-            _enc_si = base64_encrypt(cur_user_data.get("search_id", ""))
-            _host = request.build_absolute_uri('/').rstrip('/')
-            profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
-        else:
-            profile_share_url = ""
+        share_context = get_profile_share_context(request.user.username, request)
+        
         return render(
             request,
             "add_friend.html",
             {
                 "auth_user_info": auth_user_info,
-                "img_name": img_name,
-                "profile_share_url": profile_share_url,
+                **share_context,
             },
         )
 
@@ -538,21 +452,7 @@ def search_profile(request):
         auth_user_info = auth_user_data(request)
 
         # fetch current user's data for QR / share link
-        cur_user_data = find_an_object(
-            collection_name="user_data",
-            search_criteria={"user_name": request.user.username},
-        )
-        img_name = generate_profile_qr(
-            cur_user_data.get("short_name") if cur_user_data else None,
-            cur_user_data.get("search_id") if cur_user_data else None,
-        )
-        if cur_user_data:
-            _enc_sn = base64_encrypt(cur_user_data.get("short_name", ""))
-            _enc_si = base64_encrypt(cur_user_data.get("search_id", ""))
-            _host = request.build_absolute_uri('/').rstrip('/')
-            profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
-        else:
-            profile_share_url = ""
+        share_context = get_profile_share_context(request.user.username, request)
 
         # get receiver data from user_data table
         searched_user_data = find_an_object(
@@ -826,31 +726,14 @@ def friend_requests(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
-    # Fetch user data for the sender of the friend request
-    user_data = find_an_object(
-        collection_name="user_data",
-        search_criteria={
-            "user_name": request.user.username},
-    )
-    img_name = generate_profile_qr(
-        user_data.get("short_name") if user_data else None,
-        user_data.get("search_id") if user_data else None,
-    )
-    if user_data:
-        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
-        _enc_si = base64_encrypt(user_data.get("search_id", ""))
-        _host = request.build_absolute_uri('/').rstrip('/')
-        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
-    else:
-        profile_share_url = ""
+    share_context = get_profile_share_context(request.user.username, request)
 
     context = {
         "friend_request_data": friend_request_data,
         # You can add a logic here to determine if the user is the sender of the request
         "its_me": False,
         "auth_user_info": auth_user_info,
-        "img_name": img_name,
-        "profile_share_url": profile_share_url,
+        **share_context,
     }
     return render(request, "friend_requests.html", context)
 
@@ -924,31 +807,14 @@ def sent_requests(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
-    # Fetch user data for the sender of the friend request
-    user_data = find_an_object(
-        collection_name="user_data",
-        search_criteria={
-            "user_name": request.user.username},
-    )
-    img_name = generate_profile_qr(
-        user_data.get("short_name") if user_data else None,
-        user_data.get("search_id") if user_data else None,
-    )
-    if user_data:
-        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
-        _enc_si = base64_encrypt(user_data.get("search_id", ""))
-        _host = request.build_absolute_uri('/').rstrip('/')
-        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
-    else:
-        profile_share_url = ""
+    share_context = get_profile_share_context(request.user.username, request)
 
     context = {
         "friend_request_data": friend_request_data,
         # You can add a logic here to determine if the user is the sender of the request
         "its_me": False,
         "auth_user_info": auth_user_info,
-        "img_name": img_name,
-        "profile_share_url": profile_share_url,
+        **share_context,
     }
     return render(request, "sent_requests.html", context)
 
@@ -1137,30 +1003,13 @@ def friends(request):
     # Pass the friend request data to the template
     auth_user_info = auth_user_data(request)
 
-    # Fetch user data for the sender of the friend request
-    user_data = find_an_object(
-        collection_name="user_data",
-        search_criteria={
-            "user_name": request.user.username},
-    )
-    img_name = generate_profile_qr(
-        user_data.get("short_name") if user_data else None,
-        user_data.get("search_id") if user_data else None,
-    )
-    if user_data:
-        _enc_sn = base64_encrypt(user_data.get("short_name", ""))
-        _enc_si = base64_encrypt(user_data.get("search_id", ""))
-        _host = request.build_absolute_uri('/').rstrip('/')
-        profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
-    else:
-        profile_share_url = ""
+    share_context = get_profile_share_context(request.user.username, request)
 
     context = {
         "friend_request_data": friends_data,
         # You can add a logic here to determine if the user is the sender of the request
         "auth_user_info": auth_user_info,
-        "img_name": img_name,
-        "profile_share_url": profile_share_url,
+        **share_context,
     }
     return render(request, "friends.html", context)
 
@@ -1230,23 +1079,7 @@ def direct_message(request):
             )[0] if searched_user_data and 'full_name' in searched_user_data else ''
             encrypted_conversation_id = get_conversation_id_for_friendship(request.user.username, friend_id)
 
-            # Fetch user data for the sender of the friend request
-            user_data = find_an_object(
-                collection_name="user_data",
-                search_criteria={
-                    "user_name": request.user.username},
-            )
-            img_name = generate_profile_qr(
-                user_data.get("short_name") if user_data else None,
-                user_data.get("search_id") if user_data else None,
-            )
-            if user_data:
-                _enc_sn = base64_encrypt(user_data.get("short_name", ""))
-                _enc_si = base64_encrypt(user_data.get("search_id", ""))
-                _host = request.build_absolute_uri('/').rstrip('/')
-                profile_share_url = f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
-            else:
-                profile_share_url = ""
+            share_context = get_profile_share_context(request.user.username, request)
 
             # print(conversations_sorted)
             return render(
@@ -1258,8 +1091,7 @@ def direct_message(request):
                     "messages": conversations_sorted,
                     "auth_user_info": auth_user_info,
                     "encrypted_conversation_id": encrypted_conversation_id,
-                    "img_name": img_name,
-                    "profile_share_url": profile_share_url,
+                    **share_context,
                 }
             )
         else:

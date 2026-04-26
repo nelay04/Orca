@@ -12,6 +12,13 @@ import base64
 import pytz  # type: ignore
 import re
 import qrcode  # type: ignore
+import logging
+from cryptography.fernet import Fernet
+import hashlib
+
+logger = logging.getLogger(__name__)
+
+
 from .mongo_service import (
     find_an_object,
 )
@@ -46,8 +53,8 @@ def auth_user_data(request):
             "name": full_name,
         }
         return auth_user_info
-    except Exception as e:
-        print(f"Error in auth_user_data: {e}")  # Debugging print statement
+    except Exception:
+        logger.exception("Error in auth_user_data")
         return None
 
 
@@ -86,7 +93,9 @@ def get_current_time_ist():
     # Get current time in IST
     current_time = datetime.now(ist)
     # Format the current time as "DD-MM-YYYY HH:MM:SS.milliseconds"
-    formatted_time = current_time.strftime("%d-%m-%Y %H:%M:%S:") + str(current_time.microsecond // 1000).zfill(3)
+    formatted_time = current_time.strftime("%d-%m-%Y %H:%M:%S:") + str(
+        current_time.microsecond // 1000
+    ).zfill(3)
     return formatted_time
 
 
@@ -167,7 +176,7 @@ def generate_username(email, nanosecond):
 
     # Step 3: Combine the cleaned prefix and nanoseconds to form the username
     username = f"{clean_prefix}{nanosecond}"
-    print(username)
+    logger.info(f"Generated username: {username}")
     return username
 
 
@@ -194,7 +203,7 @@ def get_oops_img_text(theme):
     # Dynamically create the file path based on the theme parameter
     file_name = f"{theme}.txt"
     file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-    print(file_path)
+    logger.info(f"Oops img path: {file_path}")
     # Read the content of the text file
     try:
         with open(file_path, "r") as file:
@@ -222,31 +231,30 @@ def normalize_full_name(full_name):
     return normalized_name
 
 
-def base64_decrypt(encoded_value):
+def get_fernet() -> Fernet:
+    key = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def base64_decrypt(encoded_value: str) -> str | None:
+    if not encoded_value:
+        return None
     try:
-        # First Base64 decoding (URL-safe)
-        first_decode = base64.urlsafe_b64decode(
-            encoded_value + "=" * (-len(encoded_value) % 4)
-        ).decode("utf-8")
-        # Second Base64 decoding (URL-safe)
-        second_decode = base64.urlsafe_b64decode(
-            first_decode + "=" * (-len(first_decode) % 4)
-        ).decode("utf-8")
-        return second_decode
-    except Exception as e:
-        print(f"Decoding failed: {e}")
+        f = get_fernet()
+        return f.decrypt(encoded_value.encode("utf-8")).decode("utf-8")
+    except Exception:
+        logger.exception("Decoding failed")
         return None
 
 
-def base64_encrypt(original_value):
+def base64_encrypt(original_value: str) -> str | None:
+    if not original_value:
+        return None
     try:
-        # First Base64 encoding (URL-safe)
-        first_encode = base64.urlsafe_b64encode(original_value.encode("utf-8")).decode("utf-8").rstrip("=")
-        # Second Base64 encoding (URL-safe)
-        second_encode = base64.urlsafe_b64encode(first_encode.encode("utf-8")).decode("utf-8").rstrip("=")
-        return second_encode
-    except Exception as e:
-        print(f"Encoding failed: {e}")
+        f = get_fernet()
+        return f.encrypt(str(original_value).encode("utf-8")).decode("utf-8")
+    except Exception:
+        logger.exception("Encoding failed")
         return None
 
 
@@ -261,10 +269,10 @@ def generate_profile_qr(short_name, search_id):
     if not short_name or not search_id:
         return None
 
-    img_name = (f"qr_{base64_encrypt(short_name)}_{base64_encrypt(search_id)}.png")
+    img_name = f"qr_{base64_encrypt(short_name)}_{base64_encrypt(search_id)}.png"
 
-    app_name = os.environ.get('APP_NAME', 'orca2echo')
-    qr_dir = os.path.join(settings.BASE_DIR, app_name, 'static', 'qr')
+    app_name = os.environ.get("APP_NAME", "orca2echo")
+    qr_dir = os.path.join(settings.BASE_DIR, app_name, "static", "qr")
     qr_image_path = os.path.join(qr_dir, img_name)
     # Ensure the directory exists before checking for the file or saving
     os.makedirs(qr_dir, exist_ok=True)
@@ -291,3 +299,29 @@ def generate_profile_qr(short_name, search_id):
         img.save(qr_image_path)
 
         return img_name
+
+
+def get_profile_share_context(user_name: str, request) -> dict:
+    """Helper to generate profile QR and share URL for context."""
+    user_data = find_an_object(
+        collection_name="user_data",
+        search_criteria={"user_name": user_name},
+    )
+    img_name = generate_profile_qr(
+        user_data.get("short_name") if user_data else None,
+        user_data.get("search_id") if user_data else None,
+    )
+    if user_data:
+        _enc_sn = base64_encrypt(str(user_data.get("short_name", "")))
+        _enc_si = base64_encrypt(str(user_data.get("search_id", "")))
+        _host = request.build_absolute_uri("/").rstrip("/")
+        profile_share_url = (
+            f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"
+        )
+    else:
+        profile_share_url = ""
+
+    return {
+        "img_name": img_name,
+        "profile_share_url": profile_share_url,
+    }

@@ -11,3 +11,4 @@ staticfiles/
 *.pyc
 *.pyo
 chat_connections.log
+django_app.log
