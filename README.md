@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="orca2echo/static/images/home-screen.png" alt="Home Screen" width="80%" />
+  <img src="orca2echo/static/images/home-screen.png" alt="Home Screen" width="35%" />
 </p>
 
 ---
@@ -29,7 +29,7 @@
 ### Live Chat Room
 
 <p align="center">
-  <img src="orca2echo/static/images/chat-room.png" alt="Chat Room" width="80%" />
+  <img src="orca2echo/static/images/chat-room.png" alt="Chat Room" width="35%" />
 </p>
 
 Real-time chat interface featuring instant message delivery, timestamps, and active status.
@@ -39,7 +39,7 @@ Real-time chat interface featuring instant message delivery, timestamps, and act
 ### Add Friends & Share Profile
 
 <p align="center">
-  <img src="orca2echo/static/images/share-profile.png" alt="Share Profile" width="80%" />
+  <img src="orca2echo/static/images/share-profile.png" alt="Share Profile" width="35%" />
 </p>
 
 Easily connect with others using encrypted QR codes or direct profile links.
@@ -49,7 +49,7 @@ Easily connect with others using encrypted QR codes or direct profile links.
 ### Friend List & Requests
 
 <p align="center">
-  <img src="orca2echo/static/images/friend-list.png" alt="Friend List" width="80%" />
+  <img src="orca2echo/static/images/friend-list.png" alt="Friend List" width="35%" />
 </p>
 
 Manage your connections, view active friends, and handle incoming requests on the fly.
