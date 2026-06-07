@@ -82,6 +82,9 @@ Manage your connections, view active friends, and handle incoming requests on th
 │   ├── views.py             # HTTP route handlers
 │   ├── consumers.py         # WebSocket Chat consumer
 │   ├── routing.py           # WebSocket routing configuration
+│   ├── management/          # Custom Django management commands
+│   │   └── commands/
+│   │       └── runasgi.py   # `python manage.py runasgi` — starts Uvicorn ASGI server
 │   ├── services/            # Extracted business logic
 │   │   ├── auth_service.py  # Encryption, QR generation, OTP
 │   │   └── mongo_service.py # PyMongo wrappers
@@ -130,7 +133,10 @@ Manage your connections, view active friends, and handle incoming requests on th
 
    ```env
    SECRET_KEY=your-django-secret-key
-   MONGODB_URL=your-mongodb-connection-string
+   DEBUG=True
+   HOST=127.0.0.1
+   PORT=8000
+   MONGO_URL=your-mongodb-connection-string
    EMAIL_HOST_USER=your-email@example.com
    EMAIL_HOST_PASSWORD=your-app-password
    VAPID_PRIVATE_KEY=your-vapid-private-key
@@ -139,13 +145,20 @@ Manage your connections, view active friends, and handle incoming requests on th
 
 ### Running the Application
 
-Because this app utilizes WebSockets, it should be run using an ASGI server like Uvicorn or Daphne.
+Because this app uses WebSockets, it must be run with an ASGI server. Use the built-in management command which reads `HOST`, `PORT`, and `DEBUG` from your `.env`:
 
 ```bash
-uvicorn orca.asgi:application --reload --host 127.0.0.1 --port 8000
+python manage.py runasgi
 ```
 
-The application will now be accessible at `http://127.0.0.1:8000/`.
+The application will be accessible at `http://127.0.0.1:8000/` (or whatever `HOST`/`PORT` you configured).
+
+You can also override `.env` values directly from the command line:
+
+```bash
+python manage.py runasgi --host 0.0.0.0 --port 9000
+python manage.py runasgi --no-reload   # disable auto-reload (for staging)
+```
 
 ---
 
@@ -153,8 +166,10 @@ The application will now be accessible at `http://127.0.0.1:8000/`.
 
 | Command | Description |
 |--------|-------------|
-| `python manage.py runserver` | Run basic Django HTTP server (No WebSocket support) |
-| `uvicorn orca.asgi:application --reload --host 127.0.0.1 --port 8000` | Run ASGI server with WebSocket support |
+| `python manage.py runasgi` | Run ASGI server with WebSocket support (reads HOST/PORT from `.env`) |
+| `python manage.py runasgi --host 0.0.0.0 --port 9000` | Override host/port at the command line |
+| `python manage.py runasgi --no-reload` | Disable auto-reload (e.g. for staging) |
+| `python manage.py runserver` | Basic Django HTTP server — no WebSocket support |
 | `python manage.py collectstatic` | Collect static files for production |
 
 ---
@@ -164,7 +179,10 @@ The application will now be accessible at `http://127.0.0.1:8000/`.
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `SECRET_KEY` | Yes | Django secret key (used for cryptography and sessions) |
-| `MONGODB_URL` | Yes | MongoDB connection URI |
+| `DEBUG` | Yes | `True` for development, `False` for production |
+| `HOST` | No | Server bind address (default: `127.0.0.1`) |
+| `PORT` | No | Server bind port (default: `8000`) |
+| `MONGO_URL` | Yes | MongoDB connection URI |
 | `EMAIL_HOST_USER` | Yes | Email address for sending OTPs |
 | `EMAIL_HOST_PASSWORD` | Yes | SMTP app password for email dispatch |
 | `VAPID_PUBLIC_KEY` | No | Public key for push notifications |
