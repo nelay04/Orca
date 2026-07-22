@@ -132,12 +132,14 @@ python manage.py runasgi --no-reload
 
 | Service | Image | Published to host | Purpose |
 |---------|-------|-------------------|---------|
-| `django` | built from `Dockerfile` | yes, `${PORT}` | the app |
+| `django` | built from `Dockerfile` | yes, on `127.0.0.1:${PORT}` | the app |
 | `mongo` | `mongo:7` | no | database, data kept in the `mongo_data` volume |
 | `redis` | `redis:7-alpine` | no | Channels layer and cache |
 
 **Yes, MongoDB runs as a container.** You do not need MongoDB installed, and
-you do not need an Atlas account. The same is true for Redis.
+you do not need an Atlas account. The same is true for Redis. Leave
+`MONGO_URL` and `REDIS_URL` blank in `.env` and the app uses them; set either
+one and yours wins.
 
 Neither database publishes a host port. They are reachable only from the app
 container over the compose network, which is why the app addresses them as
@@ -151,7 +153,9 @@ cp .env.example .env
 
 Set `SECRET_KEY`, `FERNET_KEY`, and your email credentials as described above.
 
-**Leave `MONGO_URL` and `REDIS_URL` alone.** Compose overrides both, see
+**Leave `MONGO_URL` and `REDIS_URL` blank** to use the bundled database
+containers. Nothing to install. If you would rather use a hosted database,
+set them and they win; see
 [What MONGO_URL should be](#what-mongo_url-should-be).
 
 The `.env` file must exist before you start, because compose loads it with
@@ -171,14 +175,17 @@ That is deliberate: a plain `8004:8004` mapping publishes on all interfaces and
 bypasses the host firewall. On a server, put a reverse proxy in front rather
 than widening this. To expose it anyway, set `DOCKER_BIND=0.0.0.0` in `.env`.
 
-Compose also forces three settings regardless of `.env`, because a container is
-not the same environment as your laptop:
+Compose overrides two settings regardless of `.env`, because a container is not
+the same environment as your laptop:
 
 | Setting | Value | Why |
 |---------|-------|-----|
 | `DEBUG` | `False` | Error pages would otherwise dump configuration to anyone who can reach the port. Set `DOCKER_DEBUG=True` to override. |
 | `SECURE_SSL_REDIRECT` | `False` | The container speaks HTTP; the proxy in front terminates TLS and does the redirect. Set `DOCKER_SSL_REDIRECT=True` to override. |
-| `MONGO_URL`, `REDIS_URL` | service names | `127.0.0.1` inside a container means the container itself. |
+
+`MONGO_URL` and `REDIS_URL` are *not* overridden. Your `.env` decides, and
+blank means use the bundled containers. See
+[What MONGO_URL should be](#what-mongo_url-should-be).
 
 Because `DEBUG` is off, the session cookie is marked `Secure`. Browsers treat
 `127.0.0.1` as a secure origin so sign-in still works locally, but if you reach
@@ -233,44 +240,41 @@ Also update `APP_URL` to match, since QR codes embed it.
 This trips people up, so here it is explicitly. The correct value depends
 entirely on where the app is running relative to the database.
 
+**`.env` decides.** Whatever you put in `MONGO_URL` is used. Leave it blank
+and Docker falls back to the bundled `mongo` container.
+
 | How you run the app | Where MongoDB is | `MONGO_URL` |
 |---|---|---|
 | Locally | MongoDB installed locally | `mongodb://127.0.0.1:27017/` |
 | Locally | MongoDB Atlas | `mongodb+srv://user:pass@cluster.mongodb.net/` |
-| Docker compose | the `mongo` container | `mongodb://mongo:27017/` **set for you, ignore `.env`** |
-| Docker compose | MongoDB Atlas | see below |
+| Docker compose | the bundled `mongo` container | leave blank |
+| Docker compose | MongoDB Atlas | `mongodb+srv://user:pass@cluster.mongodb.net/` |
 
-### Why compose ignores your `.env` value
+`REDIS_URL` works exactly the same way.
 
-Inside a container, `127.0.0.1` means *that container*, not your laptop. A
-`.env` pointing at `127.0.0.1:27017` would make the app try to reach a MongoDB
-running inside its own container, and fail.
+### The one address that never works in Docker
 
-So `docker-compose.yml` sets the correct values explicitly:
+Inside a container, `127.0.0.1` means *that container*, not your laptop. So a
+`.env` holding `mongodb://127.0.0.1:27017/` will not reach a MongoDB running
+on your host; it will time out looking inside the container.
 
-```yaml
-environment:
-  MONGO_URL: mongodb://mongo:27017/
-  REDIS_URL: redis://redis:6379
+Either leave `MONGO_URL` blank to use the bundled container, or give it an
+address the container can actually reach. `entrypoint.sh` prints a warning at
+startup if it spots a loopback address, so you are not left guessing at a
+connection timeout.
+
+### Using Atlas from Docker
+
+Put the connection string in `.env` and start normally:
+
+```env
+MONGO_URL=mongodb+srv://user:password@cluster.mongodb.net/
 ```
 
-Values in an `environment:` block win over values from `env_file`, so whatever
-`MONGO_URL` your `.env` holds is deliberately overridden while running under
-compose. This is intentional: it means the same `.env` works for both local and
-Docker runs without editing.
-
-### Using Atlas from Docker instead
-
-If you would rather use a hosted database, edit `docker-compose.yml`:
-
-1. Delete the `MONGO_URL:` line from the `django` service's `environment:` block.
-2. Delete the whole `mongo:` service and the `mongo` entry under `depends_on:`.
-3. Optionally delete the `mongo_data` volume.
-
-Your `.env` `MONGO_URL` is then used unchanged. Remember to allow your IP in the
-Atlas network access list.
-
-The same pattern applies to `REDIS_URL` and the `redis` service.
+Remember to allow your IP in the Atlas network access list. The bundled
+`mongo` container still starts but goes unused; remove the `mongo` service and
+its `depends_on` entry from `docker-compose.yml` if you would rather it did
+not run at all.
 
 ---
 

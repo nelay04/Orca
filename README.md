@@ -67,7 +67,8 @@ cd orca
 
 cp .env.example .env
 # Edit .env: set SECRET_KEY, FERNET_KEY, and your Gmail app password.
-# Leave MONGO_URL and REDIS_URL alone, compose points them at its own containers.
+# Leave MONGO_URL and REDIS_URL blank to use the bundled database containers.
+# Set them instead to point at MongoDB Atlas or any other host.
 
 docker compose up --build -d
 ```

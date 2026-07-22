@@ -10,6 +10,25 @@ PORT="${PORT:-8004}"
 # that would make the app unreachable from outside.
 BIND_HOST=0.0.0.0
 
+# A loopback address in a container points at the container itself, not at a
+# database running on the host. This is the most common way to misconfigure
+# MONGO_URL, and the resulting connection timeout is not self-explanatory.
+for var_pair in "MONGO_URL=$MONGO_URL" "REDIS_URL=$REDIS_URL"; do
+    name="${var_pair%%=*}"
+    value="${var_pair#*=}"
+    case "$value" in
+        *127.0.0.1*|*localhost*)
+            echo "--------------------------------------------------------------"
+            echo " WARNING: $name points at $value"
+            echo " Inside a container that address is the container itself, so"
+            echo " this will not reach a database running on your host."
+            echo " Either leave $name blank in .env to use the bundled"
+            echo " container, or set it to a reachable host."
+            echo "--------------------------------------------------------------"
+            ;;
+    esac
+done
+
 # Run Django migrations
 python manage.py migrate --noinput
 

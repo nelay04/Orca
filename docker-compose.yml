@@ -37,15 +37,15 @@ services:
     env_file:
       - .env
     environment:
-      # These deliberately override whatever .env says. Inside a container
-      # 127.0.0.1 means the container itself, so the app has to reach MongoDB
-      # and Redis by their compose service names.
+      # If .env sets MONGO_URL, that wins: point it at MongoDB Atlas or any
+      # other host and the app uses it. Leave it blank or unset and the app
+      # falls back to the bundled mongo container below, so `docker compose
+      # up` works with nothing installed. Same for Redis.
       #
-      # To use a hosted database such as MongoDB Atlas instead, delete the
-      # MONGO_URL line below and the mongo service, and your .env MONGO_URL
-      # will be used as-is.
-      MONGO_URL: mongodb://mongo:27017/
-      REDIS_URL: redis://redis:6379
+      # Note that a loopback address here will not work: inside a container,
+      # 127.0.0.1 is the container itself. entrypoint.sh warns if it sees one.
+      MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017/}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       # Deliberately ignores DEBUG from .env, which is normally True for local
       # development. A container binds all interfaces, so if the host is
       # reachable on a network then DEBUG would render the settings module to
