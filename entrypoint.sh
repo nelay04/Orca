@@ -1,6 +1,15 @@
 #!/bin/sh
 set -e
 
+# Bind port. Honours PORT from the environment (docker-compose passes .env
+# through), falling back to 8004 when it is not set.
+PORT="${PORT:-8004}"
+
+# Always bind all interfaces inside the container. HOST from .env is meant for
+# running on the host directly, where 127.0.0.1 is correct; inside a container
+# that would make the app unreachable from outside.
+BIND_HOST=0.0.0.0
+
 # Run Django migrations
 python manage.py migrate --noinput
 
@@ -29,11 +38,11 @@ if not User.objects.filter(username=username).exists():
 "
 else
     echo "Superuser env vars not set, skipping superuser creation."
-    echo "Run 'python manage.py createsuperuser' manually if you need admin access."
+    echo "Run 'docker compose exec django python manage.py createsuperuser' if you need admin access."
 fi
 
-# Start the app using Gunicorn and the WSGI server
-# exec gunicorn --bind 0.0.0.0:8004 orca.wsgi:application
+echo "Starting ASGI server on ${BIND_HOST}:${PORT}"
 
-# exec uvicorn orca.asgi:application --reload --host 127.0.0.1 --port 8004
-exec uvicorn orca.asgi:application --reload --host 0.0.0.0 --port 8004
+# Uses the same management command documented in the README. Auto-reload is
+# off: a container should not be watching files in a deployment.
+exec python manage.py runasgi --host "$BIND_HOST" --port "$PORT" --no-reload

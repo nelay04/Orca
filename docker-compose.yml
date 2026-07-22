@@ -1,17 +1,44 @@
+# Full local stack: the Django app plus the MongoDB and Redis servers it needs.
+#
+# Requires a .env file in this directory. Copy .env.example to .env first.
+# Compose reads that same .env for the ${PORT} substitutions below.
+#
+#   docker compose up --build -d      start (and rebuild)
+#   docker compose logs -f django     follow app logs
+#   docker compose down               stop
+#   docker compose down -v            stop and delete the MongoDB volume
+#
+# See docs/DEVELOPMENT.md for the full walkthrough.
+
 services:
   django:
-    build: .
+    build:
+      context: .
+      args:
+        PORT: ${PORT:-8004}
     container_name: orca
     restart: unless-stopped
     ports:
-      - "8004:8004"
+      # host:container. Both follow PORT from .env, defaulting to 8004.
+      - "${PORT:-8004}:${PORT:-8004}"
     volumes:
+      # Live code mount so edits are picked up on container restart without a
+      # rebuild. Drop this for a production-style image.
       - .:/app
+      # Keeps collectstatic output inside a Docker volume. Without this it
+      # lands in the bind mount above, leaving root-owned files in your working
+      # tree that you then need root to delete.
+      - static_files:/app/staticfiles
     env_file:
       - .env
     environment:
-      # Override the .env values so the app reaches the sibling containers
-      # rather than 127.0.0.1, which inside a container is the container itself.
+      # These deliberately override whatever .env says. Inside a container
+      # 127.0.0.1 means the container itself, so the app has to reach MongoDB
+      # and Redis by their compose service names.
+      #
+      # To use a hosted database such as MongoDB Atlas instead, delete the
+      # MONGO_URL line below and the mongo service, and your .env MONGO_URL
+      # will be used as-is.
       MONGO_URL: mongodb://mongo:27017/
       REDIS_URL: redis://redis:6379
     depends_on:
@@ -44,10 +71,6 @@ services:
 
 volumes:
   mongo_data:
+  static_files:
 
-# Run with:      docker compose up -d
-# Stop with:     docker compose down
-# Rebuild with:  docker compose up --build -d
-#
-# Neither Mongo nor Redis is published to the host, they are reachable only
-# from the app container on the compose network.
+# Neither MongoDB nor Redis publishes a host port. They are reachable only from the app container over the compose network.

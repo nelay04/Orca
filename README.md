@@ -56,7 +56,53 @@ Manage your connections, view active friends, and handle incoming requests on th
 
 ---
 
-## Tech Stack
+## Quick start
+
+The fastest path is Docker, which brings MongoDB and Redis with it. Nothing
+else to install.
+
+```bash
+git clone <repository-url>
+cd orca
+
+cp .env.example .env
+# Edit .env: set SECRET_KEY, FERNET_KEY, and your Gmail app password.
+# Leave MONGO_URL and REDIS_URL alone, compose points them at its own containers.
+
+docker compose up --build -d
+```
+
+Open `http://127.0.0.1:8004/`.
+
+Prefer to run it directly? You will need Python 3.12+, MongoDB, and Redis:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # then fill it in
+python manage.py migrate
+python manage.py init_mongo
+python manage.py runasgi
+```
+
+Sign-in sends a one-time code by email, so working `EMAIL_HOST_USER` and
+`EMAIL_HOST_PASSWORD` values are required to get past the login screen.
+
+Full setup, every environment variable, and troubleshooting:
+**[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**
+
+---
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| **[Development guide](docs/DEVELOPMENT.md)** | Running locally or with Docker, environment variables, what `MONGO_URL` should be, email setup, commands, troubleshooting |
+| **[Architecture](docs/ARCHITECTURE.md)** | Tech stack, the two-database split, data model, request flows, real-time messaging design, security model, project layout |
+
+---
+
+## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -64,211 +110,27 @@ Manage your connections, view active friends, and handle incoming requests on th
 | Backend | Python, Django, Django Channels (WebSockets) |
 | Relational store | SQLite (Django auth and OTP records) |
 | Document store | MongoDB (profiles, friendships, messages) |
-| In-Memory Store | Redis (Channels layer and rate limiting) |
+| In-memory store | Redis (Channels layer and rate limiting) |
 | Security | `cryptography.fernet` (authenticated symmetric encryption) |
 
----
-
-## Folder Structure
-
-```
-.
-├── orca/                    # Django core project folder
-│   ├── settings.py          # Application settings (logging, channels, DB)
-│   ├── asgi.py              # ASGI config for Channels
-│   └── wsgi.py              # WSGI config for HTTP
-├── orca2echo/               # Main application
-│   ├── forms.py             # Django forms for validation (Signin, Signup)
-│   ├── models.py            # MongoDB document models and the Django OTP model
-│   ├── views.py             # HTTP route handlers
-│   ├── consumers.py         # WebSocket chat consumer
-│   ├── routing.py           # WebSocket routing configuration
-│   ├── tests.py             # Auth, authorization, and token tests
-│   ├── management/          # Custom Django management commands
-│   │   └── commands/
-│   │       ├── runasgi.py   # `python manage.py runasgi` starts Uvicorn
-│   │       └── init_mongo.py# `python manage.py init_mongo` creates indexes
-│   ├── services/            # Extracted business logic
-│   │   ├── auth_service.py  # Encryption, QR generation, OTP
-│   │   ├── model_service.py # OTP lifecycle against the Django ORM
-│   │   └── mongo_service.py # PyMongo wrappers
-│   ├── static/              # CSS, JS, and image assets
-│   └── templates/           # Django HTML templates
-├── scripts/
-│   └── generate_vapid_keys.py
-├── .github/workflows/       # CI: lint and tests
-├── .env.example             # Template for your local .env
-├── requirements.txt         # Python dependencies
-└── README.md                # Project documentation
-```
+See [Architecture](docs/ARCHITECTURE.md) for how these fit together and why
+there are two databases.
 
 ---
 
-## Getting Started
-
-### Prerequisites
-
-- Python 3.12 or newer
-- MongoDB instance (local or Atlas)
-- Redis server (local or Docker)
-
-### Installation
-
-1. Clone the repository and navigate into it:
-
-   ```bash
-   git clone <repository-url>
-   cd orca
-   ```
-
-2. Create a virtual environment and install dependencies:
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. Ensure Redis is running on your machine:
-
-   ```bash
-   sudo apt install redis-server
-   sudo systemctl enable redis-server
-   sudo systemctl start redis-server
-   ```
-
-4. Create your `.env` from the template and fill in real values:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   At minimum you need `SECRET_KEY`, `MONGO_URL`, `EMAIL_HOST_USER`, and
-   `EMAIL_HOST_PASSWORD`. See [Environment Variables](#environment-variables).
-
-5. Apply migrations and create the MongoDB indexes:
-
-   ```bash
-   python manage.py migrate
-   python manage.py init_mongo
-   ```
-
-   `init_mongo` is a one-time bootstrap that creates the unique indexes the app
-   relies on. MongoDB is connected to lazily, so the rest of the project,
-   including the test suite, runs without a MongoDB server available.
-
-6. Optionally create an admin account:
-
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-### Running the Application
-
-Because this app uses WebSockets, it must be run with an ASGI server. Use the
-built-in management command, which reads `HOST`, `PORT`, and `DEBUG` from `.env`:
+## Testing
 
 ```bash
-python manage.py runasgi
+python manage.py test
+flake8 .
 ```
 
-The application will be accessible at `http://127.0.0.1:8000/` (or whatever
-`HOST` and `PORT` you configured).
-
-You can also override `.env` values from the command line:
-
-```bash
-python manage.py runasgi --host 0.0.0.0 --port 9000
-python manage.py runasgi --no-reload   # disable auto-reload (for staging)
-```
-
-### Running with Docker
-
-`docker compose` brings up the app together with MongoDB and Redis:
-
-```bash
-cp .env.example .env   # fill in SECRET_KEY and email credentials
-docker compose up --build -d
-```
-
-The app is served on `http://127.0.0.1:8004/`. The compose file overrides
-`MONGO_URL` and `REDIS_URL` to point at the sibling containers.
+The suite needs neither MongoDB nor Redis, so it runs on a bare checkout. CI
+runs the same on Python 3.12 and 3.13.
 
 ---
 
-## Available Scripts
-
-| Command | Description |
-|--------|-------------|
-| `python manage.py runasgi` | Run ASGI server with WebSocket support (reads HOST/PORT from `.env`) |
-| `python manage.py runasgi --host 0.0.0.0 --port 9000` | Override host/port at the command line |
-| `python manage.py runasgi --no-reload` | Disable auto-reload (e.g. for staging) |
-| `python manage.py init_mongo` | Create the MongoDB indexes. Safe to re-run |
-| `python manage.py test` | Run the test suite. Needs no MongoDB or Redis |
-| `flake8 .` | Lint the project |
-| `python manage.py collectstatic` | Collect static files for production |
-| `python manage.py runserver` | Basic Django HTTP server, no WebSocket support |
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SECRET_KEY` | Yes | Django secret key, used for sessions and signing |
-| `DEBUG` | Yes | `True` for development, `False` for production |
-| `ALLOWED_HOSTS` | Yes in production | Comma-separated hostnames to serve. Defaults to `127.0.0.1,localhost` |
-| `MONGO_URL` | Yes | MongoDB connection URI |
-| `EMAIL_HOST_USER` | Yes | Email address used to send OTPs |
-| `EMAIL_HOST_PASSWORD` | Yes | SMTP app password for email dispatch |
-| `APP_URL` | No | Public base URL. Used for CSRF trusted origins and QR profile links |
-| `APP_NAME` | No | App package name used to locate the QR output directory (default `orca2echo`) |
-| `HOST` | No | Server bind address (default `127.0.0.1`) |
-| `PORT` | No | Server bind port (default `8000`) |
-| `REDIS_URL` | No | Redis URI (default `redis://127.0.0.1:6379`). Also enables the shared cache |
-| `FERNET_KEY` | No | Dedicated key for profile and conversation tokens. Derived from `SECRET_KEY` when unset |
-| `SECURE_SSL_REDIRECT` | No | Set `False` to disable the HTTPS redirect when `DEBUG=False` behind a proxy that already terminates TLS |
-| `VAPID_PUBLIC_KEY` | No | Public key for push notifications (not yet wired up) |
-| `VAPID_PRIVATE_KEY` | No | Private key for push notifications (not yet wired up) |
-
-### Rotating keys
-
-Rotating `SECRET_KEY` signs every user out. Rotating `FERNET_KEY`, or rotating
-`SECRET_KEY` while `FERNET_KEY` is unset, additionally invalidates every
-previously shared profile link and QR code.
-
-When that happens, delete the generated QR directory as well:
-
-```bash
-rm -rf orca2echo/static/qr/
-```
-
-QR images are cached by filename and will not regenerate on their own, so
-stale files would keep serving links that no longer decrypt. They are rebuilt
-on the next page load.
-
----
-
-## Security Notes
-
-A few decisions worth knowing about if you deploy this:
-
-- **OTP is the only authentication factor.** Codes are generated with `secrets`,
-  expire after 10 minutes, allow 5 attempts, and cannot be re-requested for the
-  same address more than once a minute. Requests are additionally capped per
-  client address per hour.
-- **Chat access is checked against the database**, not against the shape of the
-  conversation token. A user who is not a participant is redirected away.
-- **Message bodies are never inserted as HTML.** Server-rendered history relies
-  on Django autoescaping and the WebSocket client builds nodes with
-  `textContent`.
-- **Never set `ALLOWED_HOSTS` to `*`.** With `DEBUG=False` it is what stops
-  forged `Host` headers.
-- **Do not commit `.env`.** It is gitignored. Use `.env.example` as the template.
-
----
-
-## Known Limitations and Roadmap
+## Known limitations and roadmap
 
 This started as an early solo learning project, and some parts still show it.
 Honest list of what is not done:

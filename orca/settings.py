@@ -17,8 +17,14 @@ from dotenv import load_dotenv  # type: ignore
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load .env from project root, regardless of CWD
-load_dotenv(BASE_DIR / '.env', override=True)
+# Load .env from project root, regardless of CWD.
+#
+# override=False is deliberate: a real environment variable must win over the
+# .env file. Docker, CI, and systemd all configure the app by exporting
+# variables, and the project directory is bind-mounted into the container, so
+# override=True would let a developer's local .env silently replace the
+# container's MONGO_URL and point the app at the wrong database.
+load_dotenv(BASE_DIR / '.env', override=False)
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.environ.get('SECRET_KEY')
