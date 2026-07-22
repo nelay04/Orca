@@ -12,6 +12,7 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 import orca2echo.routing  # We'll create this next
+from orca2echo.middleware import SuppressDisconnectErrors
 import sys
 from dotenv import load_dotenv
 
@@ -27,9 +28,13 @@ load_dotenv()
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
-    "websocket": AuthMiddlewareStack(
-        URLRouter(
-            orca2echo.routing.websocket_urlpatterns
+    # SuppressDisconnectErrors sits outermost so it wraps the whole websocket
+    # stack, including the channel layer cleanup that runs after StopConsumer.
+    "websocket": SuppressDisconnectErrors(
+        AuthMiddlewareStack(
+            URLRouter(
+                orca2echo.routing.websocket_urlpatterns
+            )
         )
     ),
 })
