@@ -136,10 +136,10 @@ python manage.py runasgi --no-reload
 | `mongo` | `mongo:7` | no | database, data kept in the `mongo_data` volume |
 | `redis` | `redis:7-alpine` | no | Channels layer and cache |
 
-**Yes, MongoDB runs as a container.** You do not need MongoDB installed, and
-you do not need an Atlas account. The same is true for Redis. Leave
-`MONGO_URL` and `REDIS_URL` blank in `.env` and the app uses them; set either
-one and yours wins.
+**Yes, MongoDB can run as a container**, so you do not need MongoDB installed
+or an Atlas account. The same goes for Redis. They only start when
+`COMPOSE_PROFILES=bundled-db`, so if you point `MONGO_URL` at a hosted
+database instead, no MongoDB container is created at all.
 
 Neither database publishes a host port. They are reachable only from the app
 container over the compose network, which is why the app addresses them as
@@ -153,9 +153,10 @@ cp .env.example .env
 
 Set `SECRET_KEY`, `FERNET_KEY`, and your email credentials as described above.
 
-**Leave `MONGO_URL` and `REDIS_URL` blank** to use the bundled database
-containers. Nothing to install. If you would rather use a hosted database,
-set them and they win; see
+**Leave `MONGO_URL` and `REDIS_URL` blank** and keep
+`COMPOSE_PROFILES=bundled-db` to use the bundled database containers. Nothing
+to install. To use a hosted database instead, set the URLs and clear
+`COMPOSE_PROFILES`; see
 [What MONGO_URL should be](#what-mongo_url-should-be).
 
 The `.env` file must exist before you start, because compose loads it with
@@ -183,8 +184,7 @@ the same environment as your laptop:
 | `DEBUG` | `False` | Error pages would otherwise dump configuration to anyone who can reach the port. Set `DOCKER_DEBUG=True` to override. |
 | `SECURE_SSL_REDIRECT` | `False` | The container speaks HTTP; the proxy in front terminates TLS and does the redirect. Set `DOCKER_SSL_REDIRECT=True` to override. |
 
-`MONGO_URL` and `REDIS_URL` are *not* overridden. Your `.env` decides, and
-blank means use the bundled containers. See
+`MONGO_URL` and `REDIS_URL` are *not* overridden. Your `.env` decides. See
 [What MONGO_URL should be](#what-mongo_url-should-be).
 
 Because `DEBUG` is off, the session cookie is marked `Secure`. Browsers treat
@@ -240,17 +240,22 @@ Also update `APP_URL` to match, since QR codes embed it.
 This trips people up, so here it is explicitly. The correct value depends
 entirely on where the app is running relative to the database.
 
-**`.env` decides.** Whatever you put in `MONGO_URL` is used. Leave it blank
-and Docker falls back to the bundled `mongo` container.
+**`.env` decides**, using two lines together.
 
-| How you run the app | Where MongoDB is | `MONGO_URL` |
-|---|---|---|
-| Locally | MongoDB installed locally | `mongodb://127.0.0.1:27017/` |
-| Locally | MongoDB Atlas | `mongodb+srv://user:pass@cluster.mongodb.net/` |
-| Docker compose | the bundled `mongo` container | leave blank |
-| Docker compose | MongoDB Atlas | `mongodb+srv://user:pass@cluster.mongodb.net/` |
+| How you run the app | Where MongoDB is | `COMPOSE_PROFILES` | `MONGO_URL` |
+|---|---|---|---|
+| Locally | MongoDB installed locally | ignored | `mongodb://127.0.0.1:27017/` |
+| Locally | MongoDB Atlas | ignored | `mongodb+srv://user:pass@cluster.mongodb.net/` |
+| Docker compose | bundled `mongo` container | `bundled-db` | leave blank |
+| Docker compose | MongoDB Atlas | leave blank | `mongodb+srv://user:pass@cluster.mongodb.net/` |
 
-`REDIS_URL` works exactly the same way.
+`REDIS_URL` works the same way.
+
+Clearing `COMPOSE_PROFILES` means the `mongo` and `redis` containers are never
+created, so an idle MongoDB is not sitting there consuming memory while you
+use a hosted one. Compose cannot work this out from `MONGO_URL` by itself:
+whether a service exists is resolved before variable values are considered,
+so the profile is what actually prevents the container being created.
 
 ### The one address that never works in Docker
 

@@ -37,13 +37,12 @@ services:
     env_file:
       - .env
     environment:
-      # If .env sets MONGO_URL, that wins: point it at MongoDB Atlas or any
-      # other host and the app uses it. Leave it blank or unset and the app
-      # falls back to the bundled mongo container below, so `docker compose
-      # up` works with nothing installed. Same for Redis.
+      # Your .env value wins. It is only when you leave these blank that the
+      # bundled containers are used, and those only run at all when
+      # COMPOSE_PROFILES=bundled-db. See the note at the bottom of this file.
       #
-      # Note that a loopback address here will not work: inside a container,
-      # 127.0.0.1 is the container itself. entrypoint.sh warns if it sees one.
+      # A loopback address will not work here: inside a container, 127.0.0.1
+      # is the container itself. entrypoint.sh warns if it sees one.
       MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017/}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       # Deliberately ignores DEBUG from .env, which is normally True for local
@@ -63,14 +62,21 @@ services:
       # correct when running directly on a host, does not leak in here.
       SECURE_SSL_REDIRECT: ${DOCKER_SSL_REDIRECT:-False}
     depends_on:
+      # required:false means these may be switched off by profile without
+      # making this file invalid. When they are on, startup waits for them.
       mongo:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
+        required: false
 
+  # Bundled databases. Only started when COMPOSE_PROFILES=bundled-db, so
+  # pointing MONGO_URL at a hosted database costs you no container at all.
   mongo:
     image: mongo:7
     container_name: orca-mongo
+    profiles: ["bundled-db"]
     restart: unless-stopped
     volumes:
       - mongo_data:/data/db
@@ -83,6 +89,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: orca-redis
+    profiles: ["bundled-db"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -94,4 +101,27 @@ volumes:
   mongo_data:
   static_files:
 
-# Neither MongoDB nor Redis publishes a host port. They are reachable only from the app container over the compose network.
+# Choosing your databases, entirely from .env
+# ------------------------------------------------------------------
+# Two lines decide it. Compose reads both from .env, so a plain
+# `docker compose up` does the right thing either way.
+#
+# A) Run MongoDB and Redis as containers, nothing to install:
+#
+#      COMPOSE_PROFILES=bundled-db
+#      MONGO_URL=
+#      REDIS_URL=
+#
+# B) Use hosted databases such as MongoDB Atlas. No database container is
+#    created at all, so nothing sits idle eating memory:
+#
+#      COMPOSE_PROFILES=
+#      MONGO_URL=mongodb+srv://user:password@cluster.mongodb.net/
+#      REDIS_URL=redis://your-redis-host:6379
+#
+# Compose cannot infer this from MONGO_URL alone. Whether a service exists is
+# resolved before variable values are looked at, so the profile is what
+# actually stops the container being created.
+#
+# When bundled, neither MongoDB nor Redis publishes a host port. They are
+# reachable only from the app container over the compose network.
