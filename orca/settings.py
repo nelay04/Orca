@@ -192,11 +192,19 @@ ASGI_APPLICATION = 'orca.asgi.application'
 # and under docker compose, where Redis is a separate service host.
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
 
+# channels_redis parks on BZPOPMIN for brpop_timeout (5) seconds at a time
+# while waiting for group messages. redis-py 8.0 started defaulting
+# socket_timeout to 5 seconds as well, so the client read deadline and the
+# server block time expire together and whichever lands first is a coin flip.
+# When the read deadline wins, redis-py raises
+# "TimeoutError: Timeout reading from <host>" and the consumer dies mid-chat.
+# Giving the socket a longer deadline than the blocking read keeps the timeout
+# meaningful for genuinely dead connections without tripping on idle polls.
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [REDIS_URL],
+            "hosts": [{"address": REDIS_URL, "socket_timeout": 30}],
         },
     },
 }
