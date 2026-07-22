@@ -231,9 +231,21 @@ The app is served on `http://127.0.0.1:8004/`. The compose file overrides
 | `VAPID_PUBLIC_KEY` | No | Public key for push notifications (not yet wired up) |
 | `VAPID_PRIVATE_KEY` | No | Private key for push notifications (not yet wired up) |
 
+### Rotating keys
+
 Rotating `SECRET_KEY` signs every user out. Rotating `FERNET_KEY`, or rotating
 `SECRET_KEY` while `FERNET_KEY` is unset, additionally invalidates every
 previously shared profile link and QR code.
+
+When that happens, delete the generated QR directory as well:
+
+```bash
+rm -rf orca2echo/static/qr/
+```
+
+QR images are cached by filename and will not regenerate on their own, so
+stale files would keep serving links that no longer decrypt. They are rebuilt
+on the next page load.
 
 ---
 

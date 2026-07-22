@@ -5,6 +5,7 @@ MongoDB wrappers: MongoDB calls are patched out so the suite runs against a
 bare checkout with no Mongo or Redis server.
 """
 
+import tempfile
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -267,6 +268,16 @@ class TokenTests(TestCase):
 
 
 class ProfileQrTests(TestCase):
+    """generate_profile_qr writes real PNG files, so point BASE_DIR at a
+    temporary directory to keep the project's static/qr folder clean."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        override = override_settings(BASE_DIR=self._tmp.name)
+        override.enable()
+        self.addCleanup(override.disable)
+
     def test_filename_is_stable_across_calls(self):
         # Regression: keying the filename on encrypt_token output meant the
         # on-disk cache never hit and a new PNG was written per request.
