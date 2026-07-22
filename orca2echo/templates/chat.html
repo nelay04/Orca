@@ -64,6 +64,30 @@
       }
     }
 
+    // Builds a message bubble using textContent so message bodies are never
+    // parsed as HTML. Do not switch this back to innerHTML: message text is
+    // attacker-controlled and would execute in the recipient's browser.
+    function appendMessage(text, time, side) {
+      const prevLast = messageList.querySelector('.last-msg');
+      if (prevLast) prevLast.classList.remove('last-msg');
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message ' + side + ' last-msg';
+
+      const bodyDiv = document.createElement('div');
+      bodyDiv.textContent = text;
+
+      const timeDiv = document.createElement('div');
+      timeDiv.className = 'timestamp ' + (side === 'right' ? 'right_time' : 'left_time');
+      timeDiv.textContent = time;
+
+      msgDiv.appendChild(bodyDiv);
+      msgDiv.appendChild(timeDiv);
+      messageList.insertBefore(msgDiv, scrollAnchor);
+      scrollToLastMessage();
+      return msgDiv;
+    }
+
     window.addEventListener('DOMContentLoaded', scrollToLastMessage);
     window.addEventListener('load', scrollToLastMessage); // Fallback for images/content loading later
 
@@ -95,18 +119,8 @@
         // Only append if the message is from the OTHER user.
         // The sender's own message is already added optimistically.
         if (senderUsername !== currentUsername) {
-            const prevLast = messageList.querySelector('.last-msg');
-            if (prevLast) prevLast.classList.remove('last-msg');
-
-            const msgDiv = document.createElement('div');
             // Messages received are from the other person, so they are 'left'
-            msgDiv.className = 'message left last-msg';
-            msgDiv.innerHTML = `
-                <div>${message}</div>
-                <div class="timestamp left_time">${formattedTime}</div>
-            `;
-            messageList.insertBefore(msgDiv, scrollAnchor);
-            scrollToLastMessage();
+            appendMessage(message, formattedTime, 'left');
         } else {
             // This is an echo of the sender's own message, potentially for confirmation.
             // You could update the optimistically added message (e.g., add a "sent" tick)
@@ -151,18 +165,8 @@
       const M = pad(now.getMinutes());
       const createdAt = `${day}-${month}-${year} ${H}:${M}:${S}:${MS}`; // DD-MM-YYYY HH:MM:SS:ms
 
-      // Optimistically add message to UI
-      const prevLast = messageList.querySelector('.last-msg');
-      if (prevLast) prevLast.classList.remove('last-msg');
-
-      const msgDiv = document.createElement('div');
-      msgDiv.className = 'message right last-msg'; // Sender's messages are always 'right'
-      msgDiv.innerHTML = `
-          <div>${message}</div>
-          <div class="timestamp right_time">${formattedTime}</div>
-      `;
-      messageList.insertBefore(msgDiv, scrollAnchor);
-      scrollToLastMessage();
+      // Optimistically add message to UI. Sender's messages are always 'right'.
+      const msgDiv = appendMessage(message, formattedTime, 'right');
       const originalMessageValue = composeInput.value; // Save for potential revert
       composeInput.value = ''; // Clear input
 

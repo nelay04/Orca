@@ -1,26 +1,36 @@
 #!/bin/sh
 set -e
 
-# Set default credentials (not secure)
-DJANGO_SUPERUSER_USERNAME=admin-snow
-DJANGO_SUPERUSER_EMAIL=snowflake.2k04@gmail.com
-DJANGO_SUPERUSER_PASSWORD=admin-snow
-
-
 # Run Django migrations
 python manage.py migrate --noinput
+
+# Create the MongoDB indexes the app relies on. Non-fatal so the container
+# still starts if MongoDB is not reachable yet.
+python manage.py init_mongo || echo "init_mongo skipped: MongoDB not reachable"
 
 # Collect static files into the STATIC_ROOT directory
 python manage.py collectstatic --noinput
 
-
-# Create a superuser with the specified username and password
-python manage.py shell -c "
+# Optionally create a superuser. Credentials come from the environment only,
+# there are deliberately no defaults: a committed default password would give
+# anyone who runs this image full admin access. Skipped unless all three are set.
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
+    python manage.py shell -c "
+import os
 from django.contrib.auth import get_user_model
 User = get_user_model()
-if not User.objects.filter(username='$DJANGO_SUPERUSER_USERNAME').exists():
-    User.objects.create_superuser('$DJANGO_SUPERUSER_USERNAME', '$DJANGO_SUPERUSER_EMAIL', '$DJANGO_SUPERUSER_PASSWORD')
+username = os.environ['DJANGO_SUPERUSER_USERNAME']
+if not User.objects.filter(username=username).exists():
+    User.objects.create_superuser(
+        username,
+        os.environ['DJANGO_SUPERUSER_EMAIL'],
+        os.environ['DJANGO_SUPERUSER_PASSWORD'],
+    )
 "
+else
+    echo "Superuser env vars not set, skipping superuser creation."
+    echo "Run 'python manage.py createsuperuser' manually if you need admin access."
+fi
 
 # Start the app using Gunicorn and the WSGI server
 # exec gunicorn --bind 0.0.0.0:8004 orca.wsgi:application

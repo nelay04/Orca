@@ -24,9 +24,23 @@ load_dotenv(BASE_DIR / '.env', override=True)
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = ['*']
+
+# Comma-separated list of hostnames this app will answer for. Defaults to local
+# development only. Never widen this to '*' in a deployment: with DEBUG off,
+# Django relies on it to reject forged Host headers.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+    if host.strip()
+]
+
 _app_url = os.environ.get('APP_URL')
 CSRF_TRUSTED_ORIGINS = [_app_url] if _app_url else []
+
+# Dedicated key for profile and conversation tokens. Optional: when unset,
+# auth_service.get_fernet() derives a key from SECRET_KEY instead. Setting it
+# lets the token key be rotated without invalidating every user session.
+FERNET_KEY = os.environ.get('FERNET_KEY')
 
 # Application definition
 INSTALLED_APPS = [
@@ -43,6 +57,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise must sit directly below SecurityMiddleware and above
+    # everything else, otherwise static files are served through the whole
+    # middleware stack (or not served by WhiteNoise at all).
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',  # CSRF middleware included here
@@ -50,7 +68,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_user_agents.middleware.UserAgentMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'orca.urls'
@@ -106,6 +123,17 @@ STATICFILES_DIRS = [
 # Only needed if you plan to collect static files during deployment
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        # Compresses static files and appends a content hash to each name so
+        # they can be cached indefinitely by the browser.
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -118,20 +146,56 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 # In settings.py
 LOGIN_URL = 'signin'  # Custom login page
 
+# Security headers. Only enforced outside DEBUG so local HTTP development
+# still works; without this the session cookie would never be sent over plain
+# HTTP on localhost and signin would appear to silently fail.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SESSION_COOKIE_HTTPONLY = True
+X_FRAME_OPTIONS = 'DENY'
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
+    # Honour the scheme forwarded by a reverse proxy such as nginx.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Media files settings
 MEDIA_URL = '/media/'  # URL prefix for serving media files
 MEDIA_ROOT = os.path.join(BASE_DIR, 'orca2echo', 'media')  # Path to the media directory
 
 ASGI_APPLICATION = 'orca.asgi.application'
 
+# Redis backs the Channels layer. Configurable so the app works both locally
+# and under docker compose, where Redis is a separate service host.
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],     # Your Redis server address
+            "hosts": [REDIS_URL],
         },
     },
 }
+
+# Used for signin rate limiting. Redis when available so the limit holds across
+# worker processes; local memory otherwise, which keeps tests and a bare
+# checkout runnable without a Redis server.
+if os.environ.get('REDIS_URL'):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'orca-default-cache',
+        }
+    }
 
 VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY')
 VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY')

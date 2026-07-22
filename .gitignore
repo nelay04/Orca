@@ -1,14 +1,29 @@
+# Virtual environments
+.venv/
+venv/
 virtualenv
+
+# Python bytecode
 __pycache__
-.env
-db.sqlite3
-nohup.out
-orca2echo/static/qr/
-node_modules
-/static/qr/
-None/
-staticfiles/
 *.pyc
 *.pyo
+
+# Secrets and local config
+.env
+
+# Databases and generated data
+db.sqlite3
+orca2echo/static/qr/
+/static/qr/
+None/
+
+# Collected static files
+staticfiles/
+
+# Logs
+nohup.out
 chat_connections.log
 django_app.log
+
+# Node
+node_modules

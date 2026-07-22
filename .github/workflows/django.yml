@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master, development]
+  pull_request:
+    branches: [master, development]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint
+        run: flake8 .
+
+      # The suite patches out MongoDB and uses a local-memory cache, so no
+      # MongoDB or Redis service is needed here.
+      - name: Django system checks
+        env:
+          SECRET_KEY: ci-secret-key-not-used-outside-ci
+          DEBUG: "False"
+          ALLOWED_HOSTS: 127.0.0.1,localhost
+        run: python manage.py check
+
+      - name: Run tests
+        env:
+          SECRET_KEY: ci-secret-key-not-used-outside-ci
+          DEBUG: "False"
+          ALLOWED_HOSTS: 127.0.0.1,localhost
+        run: python manage.py test

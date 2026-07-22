@@ -1,7 +1,7 @@
 # Use an official Python image
-# Include Python 3.12 already ready to go inside the container
-# python:3.12-slim	size≈100MB	with lightweight Python, minimal OS tools
-FROM python:3.12-slim
+# Include Python 3.13 already ready to go inside the container
+# python:3.13-slim is roughly 100MB, with lightweight Python and minimal OS tools
+FROM python:3.13-slim
 
 # Prevents Python from writing .pyc
 ENV PYTHONDONTWRITEBYTECODE=1    

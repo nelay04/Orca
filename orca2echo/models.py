@@ -15,6 +15,10 @@ conversations = db["conversations"]
 class Otp(models.Model):
     otp = models.IntegerField(null=True)  # Store OTP, typically a 6-digit integer
     email = models.EmailField(null=True, blank=True)  # Store the email address
+    # created_at drives both expiry and the resend throttle.
+    created_at = models.DateTimeField(auto_now=True)
+    # Number of failed verification attempts against this OTP.
+    attempts = models.IntegerField(default=0)
 
 
 # Mongo Classes

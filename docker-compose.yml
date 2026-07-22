@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   django:
     build: .
@@ -9,14 +7,47 @@ services:
       - "8004:8004"
     volumes:
       - .:/app
+    env_file:
+      - .env
+    environment:
+      # Override the .env values so the app reaches the sibling containers
+      # rather than 127.0.0.1, which inside a container is the container itself.
+      MONGO_URL: mongodb://mongo:27017/
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
+  mongo:
+    image: mongo:7
+    container_name: orca-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-# automatically restarts the container if:
-# The container crashes
-# The host machine reboots
-# The Docker service restarts
+  redis:
+    image: redis:7-alpine
+    container_name: orca-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+volumes:
+  mongo_data:
 
-# Run with docker-compose up -d
-# Stop with docker-compose down
-# To rebuild the image, use: docker-compose up --build -d
+# Run with:      docker compose up -d
+# Stop with:     docker compose down
+# Rebuild with:  docker compose up --build -d
+#
+# Neither Mongo nor Redis is published to the host, they are reachable only
+# from the app container on the compose network.

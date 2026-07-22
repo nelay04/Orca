@@ -1,27 +1,28 @@
 """Service for user authentication -> sqlite"""
 
+import base64
+import hashlib
+import logging
+import os
 import random
+import re
+import secrets
+import time
+from datetime import datetime
+
+import pytz  # type: ignore
+import qrcode  # type: ignore
+from cryptography.fernet import Fernet
+from django.conf import settings  # type: ignore
 from django.core.mail import send_mail  # type: ignore
 from django.template.loader import render_to_string  # type: ignore
 from django.utils.html import strip_tags  # type: ignore
-from datetime import datetime
-import time
-import os
-from django.conf import settings  # type: ignore
-import base64
-import pytz  # type: ignore
-import re
-import qrcode  # type: ignore
-import logging
-from cryptography.fernet import Fernet
-import hashlib
-
-logger = logging.getLogger(__name__)
-
 
 from .mongo_service import (
     find_an_object,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def auth_user_data(request):
@@ -59,8 +60,10 @@ def auth_user_data(request):
 
 
 def generate_otp():
-    # Generate a 6-digit random OTP between 000000 and 999999
-    otp = random.randint(111111, 999999)
+    # Generate a 6-digit OTP across the full 000000-999999 range.
+    # Uses secrets rather than random: this value is the only authentication
+    # factor, and random is seeded predictably enough to be guessable.
+    otp = secrets.randbelow(1_000_000)
     return f"{otp:06d}"  # Formats the number to be 6 digits with leading zeros
 
 
@@ -232,44 +235,66 @@ def normalize_full_name(full_name):
 
 
 def get_fernet() -> Fernet:
+    """Build the Fernet used for profile and conversation tokens.
+
+    Prefers a dedicated FERNET_KEY so the token key can be rotated without
+    invalidating every session. Falls back to deriving one from SECRET_KEY,
+    which is what older deployments used, so existing links keep working.
+    """
+    configured_key = getattr(settings, "FERNET_KEY", None)
+    if configured_key:
+        return Fernet(configured_key)
+
     key = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
     return Fernet(base64.urlsafe_b64encode(key))
 
 
-def base64_decrypt(encoded_value: str) -> str | None:
+def decrypt_token(encoded_value: str) -> str | None:
+    """Decrypt a Fernet token, returning None if it is absent or invalid."""
     if not encoded_value:
         return None
     try:
         f = get_fernet()
         return f.decrypt(encoded_value.encode("utf-8")).decode("utf-8")
     except Exception:
-        logger.exception("Decoding failed")
+        logger.exception("Token decryption failed")
         return None
 
 
-def base64_encrypt(original_value: str) -> str | None:
+def encrypt_token(original_value: str) -> str | None:
+    """Encrypt a value into a Fernet token. Output is not deterministic."""
     if not original_value:
         return None
     try:
         f = get_fernet()
         return f.encrypt(str(original_value).encode("utf-8")).decode("utf-8")
     except Exception:
-        logger.exception("Encoding failed")
+        logger.exception("Token encryption failed")
         return None
 
 
-def generate_profile_qr(short_name, search_id):
+def generate_profile_qr(user_name, short_name, search_id):
     """
-    Generates a unique QR code for the user's profile.
-    The QR code is based on the current time in nanoseconds.
+    Generate (or reuse) the QR code image for a user's profile link.
+
+    The filename is keyed on user_name because it is unique and stable.
+    It must not be keyed on encrypt_token output: Fernet embeds a timestamp
+    and random IV, so the same input yields a different token every call, the
+    on-disk cache never hits, and a fresh PNG is written on every request.
 
     Returns:
-        str: A string representing the generated QR code.
+        str | None: the image filename, or None if the user has no profile ids.
     """
-    if not short_name or not search_id:
+    if not short_name or not search_id or not user_name:
         return None
 
-    img_name = f"qr_{base64_encrypt(short_name)}_{base64_encrypt(search_id)}.png"
+    # user_name is generated from a letters-only prefix plus digits, but strip
+    # anything else defensively so it can never escape the qr directory.
+    safe_user_name = re.sub(r"[^A-Za-z0-9_-]", "", str(user_name))
+    if not safe_user_name:
+        return None
+
+    img_name = f"qr_{safe_user_name}.png"
 
     app_name = os.environ.get("APP_NAME", "orca2echo")
     qr_dir = os.path.join(settings.BASE_DIR, app_name, "static", "qr")
@@ -278,27 +303,27 @@ def generate_profile_qr(short_name, search_id):
     os.makedirs(qr_dir, exist_ok=True)
     if os.path.exists(qr_image_path):
         return img_name
-    else:
-        enc_short_name = base64_encrypt(short_name)
-        enc_search_id = base64_encrypt(search_id)
 
-        host = os.environ.get("APP_URL")
-        redirect_url = f"{host}/search-profile?short-name={enc_short_name}&id-number={enc_search_id}"
+    enc_short_name = encrypt_token(short_name)
+    enc_search_id = encrypt_token(search_id)
 
-        # Generate the QR code image for the redirect_url
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(redirect_url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
+    host = os.environ.get("APP_URL", "")
+    redirect_url = f"{host}/search-profile?short-name={enc_short_name}&id-number={enc_search_id}"
 
-        img.save(qr_image_path)
+    # Generate the QR code image for the redirect_url
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(redirect_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
 
-        return img_name
+    img.save(qr_image_path)
+
+    return img_name
 
 
 def get_profile_share_context(user_name: str, request) -> dict:
@@ -308,12 +333,13 @@ def get_profile_share_context(user_name: str, request) -> dict:
         search_criteria={"user_name": user_name},
     )
     img_name = generate_profile_qr(
+        user_name,
         user_data.get("short_name") if user_data else None,
         user_data.get("search_id") if user_data else None,
     )
     if user_data:
-        _enc_sn = base64_encrypt(str(user_data.get("short_name", "")))
-        _enc_si = base64_encrypt(str(user_data.get("search_id", "")))
+        _enc_sn = encrypt_token(str(user_data.get("short_name", "")))
+        _enc_si = encrypt_token(str(user_data.get("search_id", "")))
         _host = request.build_absolute_uri("/").rstrip("/")
         profile_share_url = (
             f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"

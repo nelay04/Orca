@@ -18,6 +18,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),    #if got admin then admin.site.urls otherwise send to home.urls ->
-    path('', include('orca2echo.urls'))      #to map the root URL of your site to the URLs defined in the home app.
+    path('admin/', admin.site.urls),    # if got admin then admin.site.urls otherwise send to home.urls ->
+    path('', include('orca2echo.urls'))      # to map the root URL of your site to the URLs defined in the home app.
 ]

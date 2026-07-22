@@ -1,11 +1,13 @@
 import json
 import logging
-from channels.generic.websocket import AsyncWebsocketConsumer   # type: ignore
-from asgiref.sync import sync_to_async # For interacting with synchronous Django ORM # type: ignore
-from django.utils.dateparse import parse_datetime # type: ignore
-from datetime import datetime # type: ignore
+
+# sync_to_async lets the synchronous Django/PyMongo calls run from the
+# async consumer without blocking the event loop.
+from asgiref.sync import sync_to_async  # type: ignore
+from channels.generic.websocket import AsyncWebsocketConsumer  # type: ignore
 
 logger = logging.getLogger(__name__)
+
 
 # Example of adapting your existing synchronous functions for async context
 @sync_to_async
@@ -18,9 +20,10 @@ def save_message_to_db(conversation_id, sender_username, message_text, receiver_
         sender=sender_username,
         message=message_text,
         receiver=receiver_username,
-        created_at=created_at_str, # Ensure your save method handles this string or parse it
+        created_at=created_at_str,  # Ensure your save method handles this string or parse it
     )
-    return conversation_document.save() # This should return True/False or raise error
+    return conversation_document.save()  # This should return True/False or raise error
+
 
 @sync_to_async
 def get_conv_id(user1, user2):
@@ -52,7 +55,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
         logger.info(f"CONNECT    - User: {self.user.username}  Room: {self.room_group_name}")
 
-
     async def disconnect(self, close_code):
         # Leave room group
         if hasattr(self, 'room_group_name'):
@@ -62,14 +64,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             logger.info(f"DISCONNECT - User: {self.user.username}  Room: {self.room_group_name}")
 
-
     # Receive message from WebSocket
     async def receive(self, text_data):
         data = json.loads(text_data)
         message = data['message']
-        friend_id = data['friend_id'] # This is the receiver's username
-        created_at_str = data['created_at'] # DD-MM-YYYY HH:MM:SS:ms (from client)
-        formatted_time = data['formatted_time'] # h:mm am/pm (from client, for display)
+        friend_id = data['friend_id']  # This is the receiver's username
+        created_at_str = data['created_at']  # DD-MM-YYYY HH:MM:SS:ms (from client)
+        formatted_time = data['formatted_time']  # h:mm am/pm (from client, for display)
 
         sender_username = self.user.username
 
@@ -93,7 +94,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             conversation_id_actual,
             sender_username,
             message,
-            friend_id, # receiver
+            friend_id,  # receiver
             created_at_str
         )
 
@@ -109,11 +110,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_send(
             self.room_group_name,
             {
-                'type': 'chat_message', # This will call the chat_message method below
+                'type': 'chat_message',  # This will call the chat_message method below
                 'message': message,
                 'sender_username': sender_username,
-                'formatted_time': formatted_time, # Use client-generated display time
-                'created_at': created_at_str # Original full timestamp
+                'formatted_time': formatted_time,  # Use client-generated display time
+                'created_at': created_at_str  # Original full timestamp
             }
         )
 

@@ -11,7 +11,7 @@ import os
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
-import orca2echo.routing # We'll create this next
+import orca2echo.routing  # We'll create this next
 import sys
 from dotenv import load_dotenv
 

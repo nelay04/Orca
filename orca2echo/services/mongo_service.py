@@ -138,7 +138,7 @@ def find_all_objects(collection_name: str, search_criteria: Dict[str, Any]) -> O
 
 
 def update_objects(
-    collection_name: str, 
+    collection_name: str,
     search_criteria: Dict[str, Any],
     update_data: Dict[str, Any]
 ) -> Optional[str]:
@@ -360,7 +360,7 @@ def get_conversation_by_id(conversation_id: str, user_id: str) -> List[dict]:
     except Exception as e:
         print(f"Error occurred while fetching conversation: {e}")
         return []
-    
+
 
 def get_conversation_id_for_friendship(user_id: str, friend_id: str) -> Optional[str]:
     """
@@ -434,7 +434,7 @@ def get_latest_conversation(user_id: str, friend_id: str) -> Optional[Tuple[str,
         user_id (str): The ID of the current user.
         friend_id (str): The ID of the friend user.
     Returns:
-        Optional[Tuple[str, bool]]: 
+        Optional[Tuple[str, bool]]:
             - A tuple containing the latest message (str) and a boolean indicating if the current user is the sender.
             - Returns None if no conversation is found or an error occurs.
     Raises:

@@ -1,35 +1,27 @@
 # Standard Library Imports
-from django.http import HttpResponse, HttpResponseBadRequest  # type: ignore
 import json
-import re
-# import sys
-# import time
+import logging
 from datetime import datetime
 
 # Third-Party Library Imports
-# import requests
 from django.contrib.auth import authenticate, login, logout  # type: ignore
 from django.contrib.auth.decorators import login_required  # type: ignore
 from django.contrib.auth.models import User  # type: ignore
-from django.core.exceptions import ValidationError  # type: ignore
-# from django.core.mail import send_mail  # type: ignore
-from django.core.validators import validate_email  # type: ignore
-# from django.http import Http404  # type: ignore
+from django.core.cache import cache  # type: ignore
+from django.http import HttpResponse, HttpResponseBadRequest  # type: ignore
 from django.shortcuts import redirect, render  # type: ignore
 from django.urls import reverse  # type: ignore
 
 # Local App Imports - Models
-from .models import FriendRequestList, UserData, UserProfile, FriendList, Conversation
-import logging
 from .forms import SigninForm, SignupForm
-
-logger = logging.getLogger(__name__)
+from .models import Conversation, FriendList, FriendRequestList, UserData, UserProfile
 
 # Local App Imports - Services
 from .services.auth_service import (
     auth_user_data,
-    base64_decrypt,
-    base64_encrypt,
+    decrypt_token,
+    encrypt_token,
+    extract_first_name,
     generate_nanoseconds,
     generate_otp,
     generate_search_id,
@@ -38,34 +30,67 @@ from .services.auth_service import (
     get_current_time_ist,
     get_demo_img_text,
     get_oops_img_text,
+    get_profile_share_context,
     normalize_full_name,
     send_otp,
-    extract_first_name,
-    generate_profile_qr,
-    get_profile_share_context,
 )
 from .services.model_service import (
     add_otp,
+    can_send_otp,
     delete_otp_by_email,
+    get_otp_instance,
     get_user_by_email,
-    # get_user_by_username,
-    retrieve_otp,
+    is_otp_expired,
+    register_failed_attempt,
 )
 from .services.mongo_service import (
     find_all_objects,
     find_an_object,
+    find_friend_users_alphabetically_sorted,
+    find_friend_users_sorted_by_updated_at,
+    find_friendship,
+    get_conversation_by_id,
+    get_conversation_id_for_friendship,
+    get_friend_id_by_conversation,
+    get_latest_conversation,
     get_user_data_by_email,
     update_fields_by_email,
     update_fields_by_user_name,
     update_objects,
-    find_friendship,
-    find_friend_users_alphabetically_sorted,
-    find_friend_users_sorted_by_updated_at,
-    get_conversation_by_id,
-    get_conversation_id_for_friendship,
-    get_friend_id_by_conversation,
-    get_latest_conversation
 )
+
+logger = logging.getLogger(__name__)
+
+# Ceiling on OTP requests from a single client address per hour. The per-email
+# throttle in model_service stops one mailbox being flooded; this stops an
+# attacker cycling through many addresses from the same origin.
+OTP_REQUESTS_PER_IP_PER_HOUR = 10
+
+
+def get_client_ip(request):
+    """Best-effort client address, honouring a reverse proxy if present."""
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def within_ip_rate_limit(request):
+    """Count this OTP request against the caller's hourly budget.
+
+    Returns False once the budget is spent. Backed by the configured cache,
+    which is Redis in deployments and local memory otherwise.
+    """
+    cache_key = f"otp-requests:{get_client_ip(request)}"
+    try:
+        # add() only sets the key when absent, which starts the hour window.
+        cache.add(cache_key, 0, timeout=3600)
+        count = cache.incr(cache_key)
+    except ValueError:
+        # Key expired between add() and incr(); treat as the first request.
+        cache.set(cache_key, 1, timeout=3600)
+        count = 1
+    return count <= OTP_REQUESTS_PER_IP_PER_HOUR
 
 
 # Create your views here.
@@ -106,7 +131,7 @@ def index(request):
                         "full_name": searched_user_data["full_name"],
                         "latest_conversation_message": latest_conversation_message,
                         "is_sender": is_sender,
-                        "encrypted_conversation_id": base64_encrypt(get_conversation_id_for_friendship(request.user.username, searched_user_data["user_name"]))
+                        "encrypted_conversation_id": encrypt_token(get_conversation_id_for_friendship(request.user.username, searched_user_data["user_name"]))
                     },
                     "user_profile": {
                         "profile_picture": searched_user_profile["profile_picture"],
@@ -156,41 +181,60 @@ def signin(request):
 
         email = form.cleaned_data.get("email")
 
-        # Find out name if available from mongodb
-        name = "user"
-        try:
-            searched_user_data = find_an_object(
-                collection_name="user_data",
-                search_criteria={
-                    "email": email,
-                },
-            )
-            if searched_user_data:
-                name = searched_user_data.get("full_name")
-                # add a space before name
-                name = " " + extract_first_name(name)
-        except Exception:
-            logger.exception("Error in finding user data from MongoDB")
-            name = "user"
+        # Throttle before doing any work. Without these two checks signin acts
+        # as an open relay: anyone can POST in a loop and make the configured
+        # mailbox send unlimited mail to an address of their choosing.
+        if not can_send_otp(email):
+            logger.warning("OTP resend throttled for email")
+            return render(request, "otp.html", {
+                "error_message": "An OTP was sent recently. Check your inbox, or wait a minute to request another.",
+            })
 
-        logger.info(f"Email: {email}, Name: {name}")
-        # Generate OTP
-        otp = generate_otp()
-
-        # Send OTP to email
-        send_otp(otp, email, name)
+        if not within_ip_rate_limit(request):
+            logger.warning("OTP request rate limit hit for client address")
+            return render(request, "signin.html", {
+                "error": "Too many sign-in attempts. Please try again later.",
+            })
 
         try:
-            # Check if user exists
+            # Check if user exists. This has to happen before the OTP is sent
+            # so that superusers can be excluded without mailing them first.
             if_user = get_user_by_email(email)
 
-            if if_user is not None:
-                # Check if the user is a superuser
-                if if_user.is_superuser:
-                    return HttpResponse(
-                        "You're a superuser. login in admin page to automatically login here"
-                    )  # Response for superuser
+            # Superusers do not sign in through OTP, they use the admin page.
+            # Render the normal OTP screen anyway rather than saying so: a
+            # distinct response here would tell an attacker which address is
+            # the administrator. No OTP row is created, so verification fails.
+            if if_user is not None and if_user.is_superuser:
+                logger.info("Superuser attempted OTP signin, suppressing OTP")
+                request.session["email"] = email
+                request.session["username"] = if_user.username
+                return render(request, "otp.html")
 
+            # Find out name if available from mongodb
+            name = "user"
+            try:
+                searched_user_data = find_an_object(
+                    collection_name="user_data",
+                    search_criteria={
+                        "email": email,
+                    },
+                )
+                if searched_user_data:
+                    name = searched_user_data.get("full_name")
+                    # add a space before name
+                    name = " " + extract_first_name(name)
+            except Exception:
+                logger.exception("Error in finding user data from MongoDB")
+                name = "user"
+
+            # Generate OTP
+            otp = generate_otp()
+
+            # Send OTP to email
+            send_otp(otp, email, name)
+
+            if if_user is not None:
                 # Update the password to OTP if the user exists
                 if_user.set_password(
                     otp
@@ -250,10 +294,27 @@ def verify_otp(request):
         email = request.session.get("email")
         # Retrieve the user ID from session
         username = request.session.get("username")
-        original_otp = retrieve_otp(email)
-        # sys.exit()
 
-        if entered_otp == str(original_otp):
+        otp_instance = get_otp_instance(email)
+
+        # No pending OTP means there is nothing to verify. This must be an
+        # explicit check: retrieve_otp() returns None when the row is absent,
+        # and the old code compared against str(None), so posting the literal
+        # string "None" authenticated the session.
+        if otp_instance is None:
+            return render(request, "otp.html", {
+                "error_message": "This code has expired or was already used. Please sign in again.",
+            })
+
+        if is_otp_expired(otp_instance):
+            delete_otp_by_email(email)
+            return render(request, "otp.html", {
+                "error_message": "This code has expired. Please sign in again.",
+            })
+
+        original_otp = otp_instance.otp
+
+        if entered_otp and entered_otp == str(original_otp):
             # OTP is correct, proceed with logging in
             delete_otp_by_email(email)
             user = get_user_data_by_email(
@@ -279,7 +340,14 @@ def verify_otp(request):
                 return redirect("orca")  # Redirect to the home page
 
         else:
-            error_message = "Invalid OTP"
+            # Count the miss. A 6-digit code is brute-forceable in well under a
+            # day of unthrottled guessing, so the OTP is burned after a small
+            # number of failures and the user has to request a new one.
+            burned = register_failed_attempt(otp_instance)
+            if burned:
+                error_message = "Too many incorrect attempts. Please sign in again to get a new code."
+            else:
+                error_message = "Invalid OTP"
             return render(request, "otp.html", {"error_message": error_message})
 
     else:
@@ -362,8 +430,8 @@ def add_friend(request):
         # get receiver data and decrypt
         receiver_short_name_enc = request.POST.get("short_name_enc")
         receiver_id_number_enc = request.POST.get("id_number_enc")
-        receiver_short_name = base64_decrypt(receiver_short_name_enc)
-        receiver_id_number = base64_decrypt(receiver_id_number_enc)
+        receiver_short_name = decrypt_token(receiver_short_name_enc)
+        receiver_id_number = decrypt_token(receiver_id_number_enc)
 
         # get receiver data from user_data table
         searched_receiver_data = find_an_object(
@@ -427,7 +495,7 @@ def add_friend(request):
     else:
         # Search-for-user form
         share_context = get_profile_share_context(request.user.username, request)
-        
+
         return render(
             request,
             "add_friend.html",
@@ -445,8 +513,8 @@ def search_profile(request):
         # get cncrypted short-name and id-number and decrypt
         short_name_enc = request.GET.get("short-name", "").strip()
         id_number_enc = request.GET.get("id-number", "").strip()
-        short_name = base64_decrypt(short_name_enc)
-        id_number = base64_decrypt(id_number_enc)
+        short_name = decrypt_token(short_name_enc)
+        id_number = decrypt_token(id_number_enc)
 
         # get user data
         auth_user_info = auth_user_data(request)
@@ -476,8 +544,7 @@ def search_profile(request):
                     "auth_user_info": auth_user_info,
                     "oops_string": oops_string,
                     "oops_dark_string": oops_dark_string,
-                    "img_name": img_name,
-                    "profile_share_url": profile_share_url,
+                    **share_context,
                 },
             )
 
@@ -576,10 +643,11 @@ def search_profile(request):
                 "its_me": its_me,
                 "short_name_enc": short_name_enc,
                 "id_number_enc": id_number_enc,
-                "img_name": img_name,
-                "profile_share_url": profile_share_url,
+                **share_context,
             },
         )
+
+    return redirect("orca")
 
 
 @login_required(login_url="signin")
@@ -593,8 +661,8 @@ def cancel_request(request):
             # get cncrypted short-name and id-number and decrypt
             receiver_short_name_enc = request.POST.get("short_name_enc")
             receiver_id_number_enc = request.POST.get("id_number_enc")
-            receiver_short_name = base64_decrypt(receiver_short_name_enc)
-            receiver_id_number = base64_decrypt(receiver_id_number_enc)
+            receiver_short_name = decrypt_token(receiver_short_name_enc)
+            receiver_id_number = decrypt_token(receiver_id_number_enc)
             # show profile card accourding to current relation and allowed action
             redirect_url = reverse('search-profile') + f'?short-name={
                 receiver_short_name_enc}&id-number={receiver_id_number_enc}'
@@ -603,6 +671,10 @@ def cancel_request(request):
             receiver_id_number = request.POST.get("id_number_enc")
             # show profile card accourding to current relation and allowed action
             redirect_url = reverse('sent-requests')
+        else:
+            # Unexpected value for from_sent_request. Bail out rather than
+            # falling through to an unbound redirect_url further down.
+            return redirect(reverse('orca'))
 
         # get current user data
         auth_user_data(request)
@@ -983,8 +1055,8 @@ def friends(request):
                         "gender": searched_user_data["gender"],
                         "short_name": searched_user_data["short_name"],
                         "search_id": searched_user_data["search_id"],
-                        "search_id_enc": base64_encrypt(searched_user_data["search_id"]),
-                        "short_name_enc": base64_encrypt(searched_user_data["short_name"]),
+                        "search_id_enc": encrypt_token(searched_user_data["search_id"]),
+                        "short_name_enc": encrypt_token(searched_user_data["short_name"]),
                         "is_active": searched_user_data["is_active"],
                         "is_new_user": searched_user_data["is_new_user"],
                         "gender_icon_string": gender_icon_string,
@@ -1020,23 +1092,24 @@ def direct_message(request):
     if request.method == 'GET':
         # friend_id = request.POST.get('user-id')
         encoded_conversation_id = request.GET.get('with')
-        conversation_id = base64_decrypt(encoded_conversation_id)
+        conversation_id = decrypt_token(encoded_conversation_id)
 
         # Guard against missing or invalid conversation_id
         if not conversation_id:
             return redirect(reverse('orca'))
 
-        # Check if conversation_id contains the full request.user.username
-        if request.user.username not in conversation_id:
-            # If user tries to access another user's conversation, redirect to home
-            redirect_url = reverse('orca')
-            response = redirect(redirect_url)
+        # Authorization: this returns the other participant only when the
+        # current user is actually a member of the conversation, so a None
+        # result means the user has no claim to it. Do not substitute a
+        # substring test on conversation_id, usernames can overlap.
+        friend_id = get_friend_id_by_conversation(conversation_id, request.user.username)
+
+        if friend_id is None:
+            response = redirect(reverse('orca'))
             response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             response['Pragma'] = 'no-cache'
             response['Expires'] = '0'
             return response
-
-        friend_id = get_friend_id_by_conversation(conversation_id, request.user.username)
 
         if conversation_id:
             conversations = get_conversation_by_id(conversation_id, request.user.username)
