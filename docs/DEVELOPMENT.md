@@ -6,7 +6,7 @@ Docker.
 - [Choosing how to run it](#choosing-how-to-run-it)
 - [Option A: run locally](#option-a-run-locally)
 - [Option B: run with Docker](#option-b-run-with-docker)
-- [What MONGO_URL should be](#what-mongo_url-should-be)
+- [Choosing your databases](#choosing-your-databases)
 - [Environment variables](#environment-variables)
 - [Getting the email OTP working](#getting-the-email-otp-working)
 - [Common commands](#common-commands)
@@ -133,13 +133,14 @@ python manage.py runasgi --no-reload
 | Service | Image | Published to host | Purpose |
 |---------|-------|-------------------|---------|
 | `django` | built from `Dockerfile` | yes, on `127.0.0.1:${PORT}` | the app |
-| `mongo` | `mongo:7` | no | database, data kept in the `mongo_data` volume |
-| `redis` | `redis:7-alpine` | no | Channels layer and cache |
+| `mongo` | `mongo:7` | no | database, data kept in the `mongo_data` volume. Profile `bundled-mongo` |
+| `redis` | `redis:7-alpine` | no | Channels layer and cache. Profile `bundled-redis` |
 
 **Yes, MongoDB can run as a container**, so you do not need MongoDB installed
-or an Atlas account. The same goes for Redis. They only start when
-`COMPOSE_PROFILES=bundled-db`, so if you point `MONGO_URL` at a hosted
-database instead, no MongoDB container is created at all.
+or an Atlas account. The same goes for Redis. Each is behind its own compose
+profile, so you can run both, neither, or one of each. A container outside an
+active profile is never created and uses no memory. See
+[Choosing your databases](#choosing-your-databases).
 
 Neither database publishes a host port. They are reachable only from the app
 container over the compose network, which is why the app addresses them as
@@ -154,10 +155,9 @@ cp .env.example .env
 Set `SECRET_KEY`, `FERNET_KEY`, and your email credentials as described above.
 
 **Leave `MONGO_URL` and `REDIS_URL` blank** and keep
-`COMPOSE_PROFILES=bundled-db` to use the bundled database containers. Nothing
-to install. To use a hosted database instead, set the URLs and clear
-`COMPOSE_PROFILES`; see
-[What MONGO_URL should be](#what-mongo_url-should-be).
+`COMPOSE_PROFILES=bundled-db` to run both databases as containers. Nothing to
+install. To use hosted databases, or a mix of the two, see
+[Choosing your databases](#choosing-your-databases).
 
 The `.env` file must exist before you start, because compose loads it with
 `env_file`. Compose also reads it to resolve `${PORT}`.
@@ -185,7 +185,7 @@ the same environment as your laptop:
 | `SECURE_SSL_REDIRECT` | `False` | The container speaks HTTP; the proxy in front terminates TLS and does the redirect. Set `DOCKER_SSL_REDIRECT=True` to override. |
 
 `MONGO_URL` and `REDIS_URL` are *not* overridden. Your `.env` decides. See
-[What MONGO_URL should be](#what-mongo_url-should-be).
+[Choosing your databases](#choosing-your-databases).
 
 Because `DEBUG` is off, the session cookie is marked `Secure`. Browsers treat
 `127.0.0.1` as a secure origin so sign-in still works locally, but if you reach
@@ -235,51 +235,67 @@ Also update `APP_URL` to match, since QR codes embed it.
 
 ---
 
-## What MONGO_URL should be
+## Choosing your databases
 
-This trips people up, so here it is explicitly. The correct value depends
-entirely on where the app is running relative to the database.
+Orca needs MongoDB and Redis. Under Docker each can be a bundled container or
+something you host yourself, chosen independently.
 
-**`.env` decides**, using two lines together.
+Two things in `.env` decide it:
 
-| How you run the app | Where MongoDB is | `COMPOSE_PROFILES` | `MONGO_URL` |
+- **`COMPOSE_PROFILES`** controls which database *containers exist*.
+- **`MONGO_URL` / `REDIS_URL`** tell the app where to connect. Leave a URL
+  blank for anything running as a container.
+
+| What you want | `COMPOSE_PROFILES` | `MONGO_URL` | `REDIS_URL` |
 |---|---|---|---|
-| Locally | MongoDB installed locally | ignored | `mongodb://127.0.0.1:27017/` |
-| Locally | MongoDB Atlas | ignored | `mongodb+srv://user:pass@cluster.mongodb.net/` |
-| Docker compose | bundled `mongo` container | `bundled-db` | leave blank |
-| Docker compose | MongoDB Atlas | leave blank | `mongodb+srv://user:pass@cluster.mongodb.net/` |
+| Both as containers | `bundled-db` | blank | blank |
+| Both hosted | blank | `mongodb+srv://...` | `redis://host:6379` |
+| Mongo hosted, Redis in Docker | `bundled-redis` | `mongodb+srv://...` | blank |
+| Mongo in Docker, Redis hosted | `bundled-mongo` | blank | `redis://host:6379` |
 
-`REDIS_URL` works the same way.
+The list is comma-separated, so `bundled-mongo,bundled-redis` is identical to
+`bundled-db`.
 
-Clearing `COMPOSE_PROFILES` means the `mongo` and `redis` containers are never
-created, so an idle MongoDB is not sitting there consuming memory while you
-use a hosted one. Compose cannot work this out from `MONGO_URL` by itself:
-whether a service exists is resolved before variable values are considered,
-so the profile is what actually prevents the container being created.
+A container outside an active profile is **never created**, so it uses no
+memory. That is the point of the profiles: with a hosted MongoDB you should
+not have an idle `mongo` container sitting there.
+
+### Not running Docker?
+
+`COMPOSE_PROFILES` is ignored entirely. Just set both URLs to real addresses:
+
+```env
+MONGO_URL=mongodb://127.0.0.1:27017/
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+### Why one variable cannot do it
+
+It would be neater if a filled-in `MONGO_URL` simply switched the container
+off. Compose cannot do that: whether a service exists is resolved before
+variable values are looked at, so an empty variable cannot disable a service.
+The profile is the only thing that stops the container being created.
 
 ### The one address that never works in Docker
 
-Inside a container, `127.0.0.1` means *that container*, not your laptop. So a
-`.env` holding `mongodb://127.0.0.1:27017/` will not reach a MongoDB running
-on your host; it will time out looking inside the container.
+Inside a container, `127.0.0.1` means *that container*, not your host. A `.env`
+holding `mongodb://127.0.0.1:27017/` will not reach a MongoDB on your machine;
+it times out looking inside the container.
 
-Either leave `MONGO_URL` blank to use the bundled container, or give it an
-address the container can actually reach. `entrypoint.sh` prints a warning at
-startup if it spots a loopback address, so you are not left guessing at a
-connection timeout.
+Either leave the URL blank and use the bundled container, or give it an address
+the container can reach. `entrypoint.sh` warns at startup if it spots a
+loopback address, so you are not left staring at a connection timeout.
 
-### Using Atlas from Docker
-
-Put the connection string in `.env` and start normally:
+### Using MongoDB Atlas
 
 ```env
+COMPOSE_PROFILES=bundled-redis
 MONGO_URL=mongodb+srv://user:password@cluster.mongodb.net/
+REDIS_URL=
 ```
 
-Remember to allow your IP in the Atlas network access list. The bundled
-`mongo` container still starts but goes unused; remove the `mongo` service and
-its `depends_on` entry from `docker-compose.yml` if you would rather it did
-not run at all.
+That runs Redis as a container and MongoDB in Atlas, with no `mongo` container
+created. Remember to allow your server's IP in the Atlas network access list.
 
 ---
 
@@ -293,7 +309,7 @@ commit it.
 | Variable | Description |
 |----------|-------------|
 | `SECRET_KEY` | Django secret, used for sessions and signing. Generate a fresh one, never reuse an example value. |
-| `MONGO_URL` | MongoDB connection URI. See the table above. |
+| `MONGO_URL` | MongoDB connection URI. Leave blank under Docker to use the bundled container. See [Choosing your databases](#choosing-your-databases). |
 | `EMAIL_HOST_USER` | Gmail address that sends sign-in codes. |
 | `EMAIL_HOST_PASSWORD` | Gmail **app password**, not your account password. |
 
@@ -303,9 +319,10 @@ commit it.
 |----------|---------|-------------|
 | `DEBUG` | `False` | `True` for development. Never `True` in a deployment. |
 | `ALLOWED_HOSTS` | `127.0.0.1,localhost` | Comma-separated hostnames to serve. Set to your domain in production. Never `*`. |
+| `COMPOSE_PROFILES` | `bundled-db` | Docker only. Which database containers to create: `bundled-db`, `bundled-mongo`, `bundled-redis`, or blank for none. |
 | `FERNET_KEY` | derived from `SECRET_KEY` | Dedicated key for profile links. Setting it lets you rotate `SECRET_KEY` without breaking every shared link. |
 | `APP_URL` | none | Public base URL. Used for CSRF trusted origins and embedded in QR codes. |
-| `REDIS_URL` | `redis://127.0.0.1:6379` | Redis URI. Also switches the cache from in-memory to Redis. |
+| `REDIS_URL` | bundled container | Redis URI. Leave blank under Docker to use the bundled container. Also switches the cache from in-memory to Redis. |
 
 ### Optional
 
