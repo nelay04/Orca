@@ -320,6 +320,58 @@ class SignupFormTests(TestCase):
         self.assertFalse(SignupForm(self.valid_data(gender="wizard")).is_valid())
 
 
+class ExceptionReportFilterTests(TestCase):
+    """The debug page and 500 emails dump the settings module. Connection
+    URIs carry embedded credentials, so they must not appear in cleartext."""
+
+    def setUp(self):
+        from django.http import HttpRequest
+        from orca.reporting import OrcaExceptionReporterFilter
+
+        self.filt = OrcaExceptionReporterFilter()
+        self.request = HttpRequest()
+
+    def safe_settings(self):
+        return self.filt.get_safe_settings()
+
+    def test_redis_url_setting_is_masked(self):
+        self.assertEqual(
+            self.safe_settings()["REDIS_URL"],
+            self.filt.cleansed_substitute,
+            "REDIS_URL would be shown in cleartext on an error page",
+        )
+
+    def test_mongo_url_is_masked_in_request_meta(self):
+        # MONGO_URL is an environment variable rather than a Django setting,
+        # so it never reaches get_safe_settings(). It does reach request.META
+        # under WSGI, where servers copy os.environ into the environ dict, and
+        # the debug page renders that table. Django applies the same regex
+        # there via get_safe_request_meta.
+        self.request.META["MONGO_URL"] = "mongodb+srv://user:sup3rsecret@c.mongodb.net/"
+        safe_meta = self.filt.get_safe_request_meta(self.request)
+
+        self.assertEqual(safe_meta["MONGO_URL"], self.filt.cleansed_substitute)
+        self.assertNotIn("sup3rsecret", repr(safe_meta))
+
+    def test_secrets_are_masked(self):
+        safe = self.safe_settings()
+        for name in ["SECRET_KEY", "FERNET_KEY", "EMAIL_HOST_PASSWORD", "EMAIL_HOST_USER"]:
+            self.assertEqual(safe[name], self.filt.cleansed_substitute, f"{name} leaked")
+
+    @override_settings(MONGO_URL="mongodb+srv://user:sup3rsecret@c.mongodb.net/")
+    def test_no_password_survives_in_the_settings_dump(self):
+        # Scans the whole rendered dump rather than one key, so a password
+        # cannot slip through via some other setting that happens to hold it.
+        self.assertNotIn("sup3rsecret", repr(self.safe_settings()))
+
+    def test_harmless_settings_are_still_visible(self):
+        # Over-masking would make the debug page useless, so confirm the
+        # filter has not simply hidden everything.
+        self.assertNotEqual(
+            self.safe_settings()["ALLOWED_HOSTS"], self.filt.cleansed_substitute
+        )
+
+
 class NameHelperTests(TestCase):
     def test_normalize_collapses_whitespace_and_title_cases(self):
         self.assertEqual(normalize_full_name("  snow   flake  "), "Snow Flake")

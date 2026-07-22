@@ -41,6 +41,18 @@ else
     echo "Run 'docker compose exec django python manage.py createsuperuser' if you need admin access."
 fi
 
+# The container binds all interfaces, so if this host is reachable from a
+# network then DEBUG=True exposes the settings module to anyone who can
+# trigger an error. Warn loudly rather than fail, since DEBUG is legitimate
+# for a container running only on a developer machine.
+if [ "$DEBUG" = "True" ]; then
+    echo "=============================================================="
+    echo " WARNING: DEBUG=True and the app is bound to ${BIND_HOST}."
+    echo " Error pages will expose configuration to anyone who can reach"
+    echo " this port. Set DEBUG=False before exposing it to a network."
+    echo "=============================================================="
+fi
+
 echo "Starting ASGI server on ${BIND_HOST}:${PORT}"
 
 # Uses the same management command documented in the README. Auto-reload is

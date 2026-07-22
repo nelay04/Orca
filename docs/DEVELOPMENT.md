@@ -166,6 +166,25 @@ docker compose up --build -d
 The app is published on the port from `.env`, default `8004`, so
 `http://127.0.0.1:8004/`.
 
+The port is bound to `127.0.0.1`, so it is reachable from this machine only.
+That is deliberate: a plain `8004:8004` mapping publishes on all interfaces and
+bypasses the host firewall. On a server, put a reverse proxy in front rather
+than widening this. To expose it anyway, set `DOCKER_BIND=0.0.0.0` in `.env`.
+
+Compose also forces three settings regardless of `.env`, because a container is
+not the same environment as your laptop:
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| `DEBUG` | `False` | Error pages would otherwise dump configuration to anyone who can reach the port. Set `DOCKER_DEBUG=True` to override. |
+| `SECURE_SSL_REDIRECT` | `False` | The container speaks HTTP; the proxy in front terminates TLS and does the redirect. Set `DOCKER_SSL_REDIRECT=True` to override. |
+| `MONGO_URL`, `REDIS_URL` | service names | `127.0.0.1` inside a container means the container itself. |
+
+Because `DEBUG` is off, the session cookie is marked `Secure`. Browsers treat
+`127.0.0.1` as a secure origin so sign-in still works locally, but if you reach
+the container over plain HTTP from another machine, sign-in will fail until
+TLS is in place. Set `DOCKER_DEBUG=True` for that kind of testing.
+
 Migrations, MongoDB indexes, and `collectstatic` all run automatically on
 container start via `entrypoint.sh`.
 
@@ -287,6 +306,7 @@ commit it.
 | `PORT` | `8000` local, `8004` Docker | Bind port. In Docker this also sets the published host port. |
 | `APP_NAME` | `orca2echo` | App package name, used to locate the QR output directory. |
 | `SECURE_SSL_REDIRECT` | `True` | Only applies when `DEBUG=False`. Set `False` behind a proxy that already redirects, to avoid a redirect loop. |
+| `SECURE_HSTS_SECONDS` | `0` | HSTS max-age. Only applies when `DEBUG=False`. Set `31536000` once HTTPS is confirmed everywhere; browsers that see it refuse plain HTTP until it expires. |
 | `DJANGO_SUPERUSER_USERNAME` | unset | Only read by `entrypoint.sh`. All three superuser vars must be set for the account to be created; otherwise creation is skipped. |
 | `DJANGO_SUPERUSER_EMAIL` | unset | |
 | `DJANGO_SUPERUSER_PASSWORD` | unset | |
@@ -353,6 +373,70 @@ Coverage is focused on authentication and authorization: OTP lifecycle, the
 signin and verify views, chat access control, token handling, and form
 validation. The MongoDB service layer and the WebSocket consumer are not yet
 covered.
+
+---
+
+## Exposing it on a server
+
+Once the app is reachable at something other than `127.0.0.1`, whether that is
+`http://<ip>:<port>` or a domain, a few things matter.
+
+### Set DEBUG=False
+
+This is the one that leaks. With `DEBUG=True`, any unhandled exception renders
+Django's debug page, which includes the settings module and the request
+environment. Anyone who can reach the port and trigger an error reads it.
+
+Docker defaults `DEBUG` to `False` regardless of what `.env` says, and
+`entrypoint.sh` prints a loud warning if you deliberately turn it on. Running
+directly on a host has no such guard, so set it yourself.
+
+Django masks settings whose names match `KEY`, `SECRET`, `PASS` and similar,
+but **not** connection strings. `MONGO_URL` embeds its own username and
+password and would otherwise be printed in full. `orca/reporting.py` widens the
+mask to cover `MONGO`, `REDIS`, `EMAIL`, `URL`, `DSN` and friends, so those
+stay hidden even if `DEBUG` is left on by accident. Treat that as a safety net,
+not permission to run with `DEBUG=True`.
+
+### Set ALLOWED_HOSTS
+
+List the exact hostnames or IPs you serve. Never `*`.
+
+```env
+ALLOWED_HOSTS=orca.example.com,203.0.113.10
+APP_URL=https://orca.example.com
+```
+
+`APP_URL` is embedded into generated QR codes, so it must be the address users
+can actually reach, not an internal one.
+
+### Check the deployment posture
+
+```bash
+DEBUG=False python manage.py check --deploy
+```
+
+This should report no issues. It covers cookie flags, the SSL redirect, and
+HSTS.
+
+### Databases stay private
+
+`docker-compose.yml` publishes only the app port. MongoDB and Redis have no
+`ports:` entry, so they are reachable only from the app container over the
+compose network, never from the outside. If you add a `ports:` mapping to
+either, you are exposing an unauthenticated database to whoever can reach the
+host. Do not.
+
+### TLS
+
+Put a reverse proxy such as nginx or Caddy in front and terminate TLS there.
+Then:
+
+- `SECURE_SSL_REDIRECT=False` if the proxy already redirects, to avoid a loop.
+- `SECURE_HSTS_SECONDS=31536000` once HTTPS is confirmed working everywhere.
+
+Serving the container port directly to the internet means sessions and OTP
+codes travel in the clear.
 
 ---
 

@@ -159,12 +159,28 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_HTTPONLY = True
 X_FRAME_OPTIONS = 'DENY'
 
+# Django's default report filter masks SECRET_KEY and EMAIL_HOST_PASSWORD but
+# not MONGO_URL, which embeds its own username and password. Without this a
+# single unhandled exception under DEBUG would print the database credentials
+# into the browser.
+DEFAULT_EXCEPTION_REPORTER_FILTER = 'orca.reporting.OrcaExceptionReporterFilter'
+
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
     # Honour the scheme forwarded by a reverse proxy such as nginx.
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    # HTTP Strict Transport Security. Off by default on purpose: once a
+    # browser has seen this header it refuses plain HTTP for the whole
+    # duration, which cannot be undone by changing the server back. Turn it on
+    # (31536000 is one year) only once HTTPS is confirmed working on every
+    # subdomain you serve.
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '0'))
+    if SECURE_HSTS_SECONDS:
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+        SECURE_HSTS_PRELOAD = True
 
 # Media files settings
 MEDIA_URL = '/media/'  # URL prefix for serving media files

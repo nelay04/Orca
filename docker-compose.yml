@@ -19,8 +19,13 @@ services:
     container_name: orca
     restart: unless-stopped
     ports:
-      # host:container. Both follow PORT from .env, defaulting to 8004.
-      - "${PORT:-8004}:${PORT:-8004}"
+      # Bound to 127.0.0.1 by default, so the app is reachable from this
+      # machine only. On a server, put nginx or Caddy in front and let it
+      # terminate TLS; without this prefix Docker publishes on 0.0.0.0 and
+      # punches through the host firewall, exposing the app directly.
+      #
+      # Set DOCKER_BIND=0.0.0.0 in .env only if you really want it public.
+      - "${DOCKER_BIND:-127.0.0.1}:${PORT:-8004}:${PORT:-8004}"
     volumes:
       # Live code mount so edits are picked up on container restart without a
       # rebuild. Drop this for a production-style image.
@@ -41,6 +46,22 @@ services:
       # will be used as-is.
       MONGO_URL: mongodb://mongo:27017/
       REDIS_URL: redis://redis:6379
+      # Deliberately ignores DEBUG from .env, which is normally True for local
+      # development. A container binds all interfaces, so if the host is
+      # reachable on a network then DEBUG would render the settings module to
+      # anyone who can trigger an error.
+      #
+      # To debug inside a container, set DOCKER_DEBUG=True in .env. It is a
+      # separate name so that turning debugging on is always a conscious act.
+      DEBUG: ${DOCKER_DEBUG:-False}
+      # The container speaks plain HTTP; TLS belongs at the reverse proxy in
+      # front of it. Leaving Django's own redirect on would 301 every request
+      # to an https:// URL the container cannot serve, so `docker compose up`
+      # would appear broken. The proxy should do the http to https redirect.
+      #
+      # Uses its own name so that SECURE_SSL_REDIRECT=True in .env, which is
+      # correct when running directly on a host, does not leak in here.
+      SECURE_SSL_REDIRECT: ${DOCKER_SSL_REDIRECT:-False}
     depends_on:
       mongo:
         condition: service_healthy
