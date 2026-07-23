@@ -28,7 +28,7 @@
             right_time
           {% else %}
             left_time
-          {% endif %}">{{ msg.created_at|date:'g:i a' }}</div>
+          {% endif %}">{{ msg.created_at|date:'g:i A'|lower }}</div>
         </div>
       {% endfor %}
       <div id="scroll-anchor"></div>

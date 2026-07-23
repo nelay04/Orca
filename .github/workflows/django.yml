@@ -1,63 +1,33 @@
-name: CI
+name: CI/CD Pipeline
 
-# Manual only. Start a run from the Actions tab (or `gh workflow run django.yml`)
-# and pick master as the branch.
+# Manual only. Start a run from the Actions tab.
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  deploy:
+    name: Deploy to Contabo VM
     runs-on: ubuntu-latest
-    # workflow_dispatch cannot filter branches itself, so refuse anything but master.
+    
+    # Prevents accidental deployment if you select a branch other than master in the UI
     if: github.ref == 'refs/heads/master'
 
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12", "3.13"]
-
-    # The test runner creates and drops its own database inside this server.
-    # Redis is still not needed: the tests override the cache to local memory.
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: orca
-          POSTGRES_USER: orca
-          POSTGRES_PASSWORD: orca
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U orca -d orca"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      SECRET_KEY: ci-secret-key-not-used-outside-ci
-      DEBUG: "False"
-      ALLOWED_HOSTS: 127.0.0.1,localhost
-      DATABASE_URL: postgres://orca:orca@127.0.0.1:5432/orca
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Execute remote SSH commands
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Lint
-        run: flake8 .
-
-      - name: Django system checks
-        run: python manage.py check
-
-      - name: Run tests
-        run: python manage.py test
+          host: ${{ secrets.CONTABO_VM_HOST }}
+          username: ${{ secrets.CONTABO_VM_USERNAME }}
+          key: ${{ secrets.CONTABO_VM_SSH_KEY }}
+          script: |
+            cd ~/Projects/Python/Orca
+            
+            # Pull the latest code from GitHub
+            git fetch origin master
+            git reset --hard origin/master
+            
+            # Rebuild and restart the Django container
+            docker compose up --build -d django
+            
+            # Clean up old dangling Docker images
+            docker image prune -f
