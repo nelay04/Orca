@@ -16,6 +16,29 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
 
+    # The test runner creates and drops its own database inside this server.
+    # Redis is still not needed: the tests override the cache to local memory.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: orca
+          POSTGRES_USER: orca
+          POSTGRES_PASSWORD: orca
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U orca -d orca"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      SECRET_KEY: ci-secret-key-not-used-outside-ci
+      DEBUG: "False"
+      ALLOWED_HOSTS: 127.0.0.1,localhost
+      DATABASE_URL: postgres://orca:orca@127.0.0.1:5432/orca
+
     steps:
       - uses: actions/checkout@v4
 
@@ -33,18 +56,8 @@ jobs:
       - name: Lint
         run: flake8 .
 
-      # The suite patches out MongoDB and uses a local-memory cache, so no
-      # MongoDB or Redis service is needed here.
       - name: Django system checks
-        env:
-          SECRET_KEY: ci-secret-key-not-used-outside-ci
-          DEBUG: "False"
-          ALLOWED_HOSTS: 127.0.0.1,localhost
         run: python manage.py check
 
       - name: Run tests
-        env:
-          SECRET_KEY: ci-secret-key-not-used-outside-ci
-          DEBUG: "False"
-          ALLOWED_HOSTS: 127.0.0.1,localhost
         run: python manage.py test

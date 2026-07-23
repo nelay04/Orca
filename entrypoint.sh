@@ -12,8 +12,8 @@ BIND_HOST=0.0.0.0
 
 # A loopback address in a container points at the container itself, not at a
 # database running on the host. This is the most common way to misconfigure
-# MONGO_URL, and the resulting connection timeout is not self-explanatory.
-for var_pair in "MONGO_URL=$MONGO_URL" "REDIS_URL=$REDIS_URL"; do
+# DATABASE_URL, and the resulting connection timeout is not self-explanatory.
+for var_pair in "DATABASE_URL=$DATABASE_URL" "REDIS_URL=$REDIS_URL"; do
     name="${var_pair%%=*}"
     value="${var_pair#*=}"
     case "$value" in
@@ -29,12 +29,34 @@ for var_pair in "MONGO_URL=$MONGO_URL" "REDIS_URL=$REDIS_URL"; do
     esac
 done
 
+# The bundled databases only exist when their compose profile is active. With
+# COMPOSE_PROFILES blank, the app is created and they are not, and the only
+# symptom is "Temporary failure in name resolution" from deep inside psycopg.
+# Name the actual cause before that happens.
+for var_pair in "DATABASE_URL=$DATABASE_URL:postgres" "REDIS_URL=$REDIS_URL:redis"; do
+    name="${var_pair%%=*}"
+    rest="${var_pair#*=}"
+    value="${rest%:*}"
+    host="${rest##*:}"
+    case "$value" in
+        *"@$host:"*|*"//$host:"*)
+            if ! getent hosts "$host" > /dev/null 2>&1; then
+                echo "--------------------------------------------------------------"
+                echo " ERROR: $name points at the bundled '$host' container,"
+                echo " but no such container exists on this network."
+                echo " COMPOSE_PROFILES in .env decides which database containers"
+                echo " are created. For the bundled ones, set:"
+                echo "     COMPOSE_PROFILES=bundled-db"
+                echo " Or point $name at a database you host yourself."
+                echo "--------------------------------------------------------------"
+                exit 1
+            fi
+            ;;
+    esac
+done
+
 # Run Django migrations
 python manage.py migrate --noinput
-
-# Create the MongoDB indexes the app relies on. Non-fatal so the container
-# still starts if MongoDB is not reachable yet.
-python manage.py init_mongo || echo "init_mongo skipped: MongoDB not reachable"
 
 # Collect static files into the STATIC_ROOT directory
 python manage.py collectstatic --noinput
@@ -48,12 +70,20 @@ import os
 from django.contrib.auth import get_user_model
 User = get_user_model()
 username = os.environ['DJANGO_SUPERUSER_USERNAME']
-if not User.objects.filter(username=username).exists():
+if User.objects.filter(username=username).exists():
+    # Deliberately not updated. Re-applying the password on every start would
+    # undo any change made through the admin. Say so, because otherwise a
+    # changed DJANGO_SUPERUSER_PASSWORD silently has no effect and the login
+    # page just says the credentials are wrong.
+    print(f\"Superuser '{username}' already exists, leaving its password alone.\")
+    print('  To change it: docker compose exec django python manage.py changepassword ' + username)
+else:
     User.objects.create_superuser(
         username,
         os.environ['DJANGO_SUPERUSER_EMAIL'],
         os.environ['DJANGO_SUPERUSER_PASSWORD'],
     )
+    print(f\"Created superuser '{username}'.\")
 "
 else
     echo "Superuser env vars not set, skipping superuser creation."

@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+from urllib.parse import unquote, urlparse
+
+from django.core.exceptions import ImproperlyConfigured  # type: ignore
 from dotenv import load_dotenv  # type: ignore
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # .env file. Docker, CI, and systemd all configure the app by exporting
 # variables, and the project directory is bind-mounted into the container, so
 # override=True would let a developer's local .env silently replace the
-# container's MONGO_URL and point the app at the wrong database.
+# container's DATABASE_URL and point the app at the wrong database.
 load_dotenv(BASE_DIR / '.env', override=False)
 
 # Quick-start development settings - unsuitable for production
@@ -97,12 +100,51 @@ TEMPLATES = [
 WSGI_APPLICATION = 'orca.wsgi.application'
 
 # Database
+#
+# One PostgreSQL database holds everything: Django auth, sessions, OTPs, and
+# the application's own tables. There is deliberately no SQLite fallback. A
+# fallback would let a misconfigured deployment start against an empty local
+# file and look healthy while serving none of the real data.
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if not DATABASE_URL:
+    raise ImproperlyConfigured(
+        "DATABASE_URL is not set. Point it at PostgreSQL, for example "
+        "postgres://orca:password@127.0.0.1:5434/orca . "
+        "See docs/DEVELOPMENT.md#choosing-your-databases"
+    )
+
+_db = urlparse(DATABASE_URL)
+
+if _db.scheme not in ('postgres', 'postgresql'):
+    raise ImproperlyConfigured(
+        f"DATABASE_URL must be a postgres:// URL, got '{_db.scheme}://'."
+    )
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        # lstrip rather than [1:], so a URL with no trailing path fails the
+        # NAME check below instead of silently becoming an empty database name.
+        'NAME': _db.path.lstrip('/'),
+        'USER': unquote(_db.username or ''),
+        # The password is percent-encoded in the URL whenever it contains
+        # characters like @ or /, which is exactly the case a naive split gets
+        # wrong, so it has to be decoded here.
+        'PASSWORD': unquote(_db.password or ''),
+        'HOST': _db.hostname or '',
+        'PORT': str(_db.port or ''),
+        # Reuse connections across requests. The ASGI worker handles many short
+        # requests, and a fresh TCP connection plus authentication per request
+        # is a measurable share of a page load.
+        'CONN_MAX_AGE': 60,
     }
 }
+
+if not DATABASES['default']['NAME']:
+    raise ImproperlyConfigured(
+        "DATABASE_URL has no database name. It should end with /<dbname>."
+    )
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -160,7 +202,7 @@ SESSION_COOKIE_HTTPONLY = True
 X_FRAME_OPTIONS = 'DENY'
 
 # Django's default report filter masks SECRET_KEY and EMAIL_HOST_PASSWORD but
-# not MONGO_URL, which embeds its own username and password. Without this a
+# not DATABASE_URL, which embeds its own username and password. Without this a
 # single unhandled exception under DEBUG would print the database credentials
 # into the browser.
 DEFAULT_EXCEPTION_REPORTER_FILTER = 'orca.reporting.OrcaExceptionReporterFilter'

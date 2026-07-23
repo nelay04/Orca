@@ -1,4 +1,5 @@
-# Full local stack: the Django app plus the MongoDB and Redis servers it needs.
+# Full local stack: the Django app plus the PostgreSQL and Redis servers it
+# needs, and an optional pgAdmin for browsing the database.
 #
 # Requires a .env file in this directory. Copy .env.example to .env first.
 # Compose reads that same .env for the ${PORT} substitutions below.
@@ -6,7 +7,7 @@
 #   docker compose up --build -d      start (and rebuild)
 #   docker compose logs -f django     follow app logs
 #   docker compose down               stop
-#   docker compose down -v            stop and delete the MongoDB volume
+#   docker compose down -v            stop and delete the database volume
 #
 # See docs/DEVELOPMENT.md for the full walkthrough.
 
@@ -43,7 +44,7 @@ services:
       #
       # A loopback address will not work here: inside a container, 127.0.0.1
       # is the container itself. entrypoint.sh warns if it sees one.
-      MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017/}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-orca}:${POSTGRES_PASSWORD:-orca}@postgres:${POSTGRES_PORT:-5434}/${POSTGRES_DB:-orca}}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       # Deliberately ignores DEBUG from .env, which is normally True for local
       # development. A container binds all interfaces, so if the host is
@@ -64,7 +65,7 @@ services:
     depends_on:
       # required:false means these may be switched off by profile without
       # making this file invalid. When they are on, startup waits for them.
-      mongo:
+      postgres:
         condition: service_healthy
         required: false
       redis:
@@ -72,17 +73,32 @@ services:
         required: false
 
   # Bundled databases. Each belongs to its own profile as well as the
-  # combined "bundled-db" one, so they can be enabled independently: hosted
-  # MongoDB with a local Redis container is a perfectly reasonable mix.
-  mongo:
-    image: mongo:7
-    container_name: orca-mongo
-    profiles: ["bundled-db", "bundled-mongo"]
+  # combined "bundled-db" one, so they can be enabled independently: a hosted
+  # PostgreSQL with a local Redis container is a perfectly reasonable mix.
+  postgres:
+    image: postgres:17-alpine
+    container_name: orca-postgres
+    profiles: ["bundled-db", "bundled-postgres"]
     restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-orca}
+      POSTGRES_USER: ${POSTGRES_USER:-orca}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orca}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      # The server listens on POSTGRES_PORT rather than the default 5432, so
+      # the published mapping below is the same port on both sides. The
+      # default of 5434 also stays clear of a PostgreSQL already installed on
+      # the host.
+      PGPORT: ${POSTGRES_PORT:-5434}
+    ports:
+      # Published so psql, pgAdmin, or an IDE on this machine can reach it.
+      # Still bound to 127.0.0.1 by default: a bare "5434:5434" would publish
+      # the database on every interface and bypass the host firewall.
+      - "${DOCKER_BIND:-127.0.0.1}:${POSTGRES_PORT:-5434}:${POSTGRES_PORT:-5434}"
     volumes:
-      - mongo_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orca} -d ${POSTGRES_DB:-orca} -p ${POSTGRES_PORT:-5434}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -98,8 +114,42 @@ services:
       timeout: 5s
       retries: 5
 
+  # Optional web UI for the database. In its own profile, so it is only
+  # created when you ask for it: COMPOSE_PROFILES=bundled-db,pgadmin
+  #
+  # Connect to host "postgres" on ${POSTGRES_PORT} from inside pgAdmin, not to
+  # 127.0.0.1, which inside that container means pgAdmin itself.
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: orca-pgadmin
+    profiles: ["pgadmin"]
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      # Single-user desktop mode: it opens straight into the browser with no
+      # login screen, so anyone who can reach the port owns the database.
+      # Keep it on 127.0.0.1; do not run this on a shared host.
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      # Same idea as PGPORT above: listen on PGADMIN_PORT instead of the
+      # default 80 so the mapping stays the same port on both sides.
+      #
+      # Not 5060. Chrome and Edge refuse that port outright (it is SIP, on
+      # their blocked list) and answer ERR_UNSAFE_PORT before any request is
+      # made, so the container looks broken while being perfectly healthy.
+      PGADMIN_LISTEN_PORT: ${PGADMIN_PORT:-5050}
+    ports:
+      - "${DOCKER_BIND:-127.0.0.1}:${PGADMIN_PORT:-5050}:${PGADMIN_PORT:-5050}"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+
 volumes:
-  mongo_data:
+  postgres_data:
+  pgadmin_data:
   static_files:
 
 # Choosing your databases, entirely from .env
@@ -111,31 +161,34 @@ volumes:
 #
 # A) Both as containers, nothing to install:
 #      COMPOSE_PROFILES=bundled-db
-#      MONGO_URL=
+#      DATABASE_URL=
 #      REDIS_URL=
 #
-# B) Both hosted, for example MongoDB Atlas. No database container is
+# B) Both hosted, for example a managed PostgreSQL. No database container is
 #    created at all, so nothing sits idle using memory:
 #      COMPOSE_PROFILES=
-#      MONGO_URL=mongodb+srv://user:password@cluster.mongodb.net/
+#      DATABASE_URL=postgres://user:password@db.example.com:5432/orca
 #      REDIS_URL=redis://your-redis-host:6379
 #
-# C) Mixed. Hosted MongoDB, Redis as a container:
+# C) Mixed. Hosted PostgreSQL, Redis as a container:
 #      COMPOSE_PROFILES=bundled-redis
-#      MONGO_URL=mongodb+srv://user:password@cluster.mongodb.net/
+#      DATABASE_URL=postgres://user:password@db.example.com:5432/orca
 #      REDIS_URL=
 #
-# D) The other way round, MongoDB as a container and Redis hosted:
-#      COMPOSE_PROFILES=bundled-mongo
-#      MONGO_URL=
+# D) The other way round, PostgreSQL as a container and Redis hosted:
+#      COMPOSE_PROFILES=bundled-postgres
+#      DATABASE_URL=
 #      REDIS_URL=redis://your-redis-host:6379
 #
-# COMPOSE_PROFILES takes a comma-separated list, so bundled-mongo,bundled-redis
+# E) Containers plus the pgAdmin web UI on http://127.0.0.1:5050 :
+#      COMPOSE_PROFILES=bundled-db,pgadmin
+#
+# COMPOSE_PROFILES takes a comma-separated list, so bundled-postgres,bundled-redis
 # is equivalent to bundled-db.
 #
 # Compose cannot infer any of this from the URLs. Whether a service exists is
 # resolved before variable values are looked at, so the profile is what
 # actually stops the container being created.
 #
-# When bundled, neither MongoDB nor Redis publishes a host port. They are
-# reachable only from the app container over the compose network.
+# Redis publishes no host port. PostgreSQL and pgAdmin do, but bound to
+# 127.0.0.1 unless DOCKER_BIND says otherwise.

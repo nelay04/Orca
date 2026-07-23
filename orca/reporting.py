@@ -5,9 +5,9 @@ masks names matching API|AUTH|TOKEN|KEY|SECRET|PASS|SIGNATURE|HTTP_COOKIE,
 which covers SECRET_KEY and EMAIL_HOST_PASSWORD but leaves connection URIs
 untouched.
 
-That is a problem here because MONGO_URL embeds its own username and password:
+That is a problem here because DATABASE_URL embeds its own username and password:
 
-    mongodb+srv://user:password@cluster.mongodb.net/
+    postgres://user:password@db.example.com:5432/orca
 
 so a single unhandled exception on a server running with DEBUG=True would show
 the full database credentials to whoever triggered it. This widens the mask to

@@ -1,8 +1,8 @@
 """Tests for Orca.
 
-These cover the authentication and authorization logic rather than the
-MongoDB wrappers: MongoDB calls are patched out so the suite runs against a
-bare checkout with no Mongo or Redis server.
+These cover authentication, authorization and the friendship lifecycle. They
+run against a real PostgreSQL test database, which the test runner creates and
+drops; only the cache is overridden, so no Redis server is needed.
 """
 
 import tempfile
@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .forms import SignupForm
-from .models import Otp
+from .models import FriendRequest, Friendship, Message, Otp, Profile
 from .services import model_service
 from .services.auth_service import (
     decrypt_token,
@@ -25,6 +25,22 @@ from .services.auth_service import (
     generate_short_name,
     normalize_full_name,
 )
+from .services.data_service import find_friendship, resolve_friendship
+
+
+def make_user(username, email, full_name="Test User", short_name="TU", search_id=None, **profile_fields):
+    """A user with the profile every logged-in view expects to find."""
+    user = User.objects.create_user(username=username, email=email, password="pw")
+    Profile.objects.create(
+        user=user,
+        full_name=full_name,
+        short_name=short_name,
+        search_id=search_id or f"id-{username}",
+        is_new_user=False,
+        **profile_fields,
+    )
+    return user
+
 
 LOCMEM_CACHE = {
     "default": {
@@ -170,9 +186,8 @@ class VerifyOtpViewTests(TestCase):
         self.post_otp("123456")
         self.assertNotIn("_auth_user_id", self.client.session)
 
-    @patch("orca2echo.views.get_user_data_by_email")
-    def test_correct_otp_authenticates_existing_user(self, mock_user_data):
-        mock_user_data.return_value = {"email": self.email, "is_new_user": False}
+    def test_correct_otp_authenticates_existing_user(self):
+        Profile.objects.create(user=User.objects.get(username=self.username), is_new_user=False)
         model_service.add_otp(self.email, "123456")
 
         response = self.post_otp("123456")
@@ -187,8 +202,7 @@ class VerifyOtpViewTests(TestCase):
 @override_settings(CACHES=LOCMEM_CACHE, STORAGES=TEST_STORAGES)
 class SigninViewTests(TestCase):
     @patch("orca2echo.views.send_otp")
-    @patch("orca2echo.views.find_an_object", return_value=None)
-    def test_superuser_gets_the_same_response_as_anyone_else(self, _find, mock_send):
+    def test_superuser_gets_the_same_response_as_anyone_else(self, mock_send):
         User.objects.create_superuser(
             username="root", email="root@example.com", password="pw"
         )
@@ -202,9 +216,8 @@ class SigninViewTests(TestCase):
         mock_send.assert_not_called()
 
     @patch("orca2echo.views.send_otp")
-    @patch("orca2echo.views.find_an_object", return_value=None)
-    def test_second_immediate_request_is_throttled(self, _find, mock_send):
-        User.objects.create_user(username="u1", email="u1@example.com", password="pw")
+    def test_second_immediate_request_is_throttled(self, mock_send):
+        make_user("u1", "u1@example.com")
 
         self.client.post(reverse("signin"), {"email": "u1@example.com"})
         self.assertEqual(mock_send.call_count, 1)
@@ -217,17 +230,51 @@ class SigninViewTests(TestCase):
         response = self.client.post(reverse("signin"), {"email": "not-an-email"})
         self.assertContains(response, "valid email")
 
+    @patch("orca2echo.views.send_otp")
+    def test_new_user_gets_a_profile(self, _mock_send):
+        self.client.post(reverse("signin"), {"email": "fresh@example.com"})
+
+        user = User.objects.get(email="fresh@example.com")
+        self.assertTrue(Profile.objects.filter(user=user).exists())
+        self.assertTrue(user.profile.is_new_user)
+
+    @patch("orca2echo.views.send_otp")
+    @patch("orca2echo.views.Profile.objects.create", side_effect=RuntimeError("db blew up"))
+    def test_a_failed_profile_write_rolls_the_user_back(self, _mock_profile, _mock_send):
+        # Without the atomic block, an auth_user with no profile would hold the
+        # address and the user could never complete signup.
+        self.client.post(reverse("signin"), {"email": "doomed@example.com"})
+        self.assertFalse(User.objects.filter(email="doomed@example.com").exists())
+
 
 @override_settings(CACHES=LOCMEM_CACHE, STORAGES=TEST_STORAGES)
 class ChatAuthorizationTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="alice", email="a@example.com", password="pw")
+        self.user = make_user("alice", "a@example.com", full_name="Alice Ash", short_name="AA")
+        self.bob = make_user("bob", "b@example.com", full_name="Bob Birch", short_name="BB")
+        self.carol = make_user("carol", "c@example.com", full_name="Carol Cedar", short_name="CC")
         self.client.force_login(self.user)
 
-    @patch("orca2echo.views.get_friend_id_by_conversation", return_value=None)
-    def test_non_member_cannot_open_a_conversation(self, _mock):
-        token = encrypt_token("bob_carol")
-        response = self.client.get(reverse("chat"), {"with": token})
+    def test_member_can_open_their_conversation(self):
+        friendship = Friendship.objects.create(user_1=self.user, user_2=self.bob)
+        response = self.client.get(reverse("chat"), {"with": encrypt_token(str(friendship.public_id))})
+        self.assertEqual(response.status_code, 200)
+
+    def test_non_member_cannot_open_a_conversation(self):
+        # A conversation between two other people. The token decrypts fine,
+        # which is exactly why membership has to be a database lookup.
+        friendship = Friendship.objects.create(user_1=self.bob, user_2=self.carol)
+        response = self.client.get(reverse("chat"), {"with": encrypt_token(str(friendship.public_id))})
+        self.assertRedirects(response, reverse("orca"), fetch_redirect_response=False)
+
+    def test_unknown_conversation_redirects_home(self):
+        response = self.client.get(
+            reverse("chat"), {"with": encrypt_token("6f1e4b0e-0000-4000-8000-000000000000")}
+        )
+        self.assertRedirects(response, reverse("orca"), fetch_redirect_response=False)
+
+    def test_token_that_is_not_a_uuid_redirects_home(self):
+        response = self.client.get(reverse("chat"), {"with": encrypt_token("alice_bob")})
         self.assertRedirects(response, reverse("orca"), fetch_redirect_response=False)
 
     def test_missing_token_redirects_home(self):
@@ -243,6 +290,106 @@ class ChatAuthorizationTests(TestCase):
         response = self.client.get(reverse("chat"), {"with": "x"})
         self.assertEqual(response.status_code, 302)
         self.assertIn("signin", response["Location"])
+
+
+@override_settings(CACHES=LOCMEM_CACHE, STORAGES=TEST_STORAGES)
+class FriendRequestLifecycleTests(TestCase):
+    def setUp(self):
+        self.alice = make_user("alice", "a@example.com", full_name="Alice Ash", short_name="AA", search_id="111")
+        self.bob = make_user("bob", "b@example.com", full_name="Bob Birch", short_name="BB", search_id="222")
+        self.client.force_login(self.alice)
+
+    def send_request(self):
+        return self.client.post(
+            reverse("add-friend"),
+            {
+                "short_name_enc": encrypt_token("BB"),
+                "id_number_enc": encrypt_token("222"),
+            },
+        )
+
+    def test_request_is_created_once_and_reactivated_on_resend(self):
+        self.send_request()
+        self.assertEqual(FriendRequest.objects.count(), 1)
+
+        # Cancel, then send again. The same row is reused, which is what the
+        # unique constraint on the pair enforces.
+        self.client.post(
+            reverse("cancel-request"),
+            {"from_sent_request": "0", "short_name_enc": encrypt_token("BB"), "id_number_enc": encrypt_token("222")},
+        )
+        self.send_request()
+
+        self.assertEqual(FriendRequest.objects.count(), 1)
+        friend_request = FriendRequest.objects.get()
+        self.assertTrue(friend_request.is_active)
+        self.assertFalse(friend_request.is_cancelled)
+        self.assertEqual(friend_request.request_count, 2)
+
+    def test_accepting_creates_exactly_one_friendship(self):
+        self.send_request()
+
+        self.client.force_login(self.bob)
+        # These identifiers are posted unencrypted from the requests page.
+        self.client.post(
+            reverse("response"),
+            {"response": "accept", "short_name_enc": "AA", "id_number_enc": "111"},
+        )
+
+        self.assertEqual(Friendship.objects.count(), 1)
+        self.assertTrue(FriendRequest.objects.get().is_accepted)
+        self.assertIsNotNone(find_friendship(self.alice, self.bob))
+        # And the reverse lookup finds the same row, whichever order it asks in.
+        self.assertEqual(
+            find_friendship(self.bob, self.alice).pk, find_friendship(self.alice, self.bob).pk
+        )
+
+    def test_declining_leaves_no_friendship(self):
+        self.send_request()
+
+        self.client.force_login(self.bob)
+        self.client.post(
+            reverse("response"),
+            {"response": "decline", "short_name_enc": "AA", "id_number_enc": "111"},
+        )
+
+        self.assertEqual(Friendship.objects.count(), 0)
+        friend_request = FriendRequest.objects.get()
+        self.assertTrue(friend_request.is_declined)
+        self.assertFalse(friend_request.is_active)
+
+
+class MessageTests(TestCase):
+    def setUp(self):
+        self.alice = make_user("alice", "a@example.com")
+        self.bob = make_user("bob", "b@example.com")
+        self.friendship = Friendship.objects.create(user_1=self.alice, user_2=self.bob)
+
+    def test_messages_come_back_oldest_first(self):
+        for body in ["first", "second", "third"]:
+            Message.objects.create(
+                friendship=self.friendship, sender=self.alice, receiver=self.bob, message=body
+            )
+
+        self.assertEqual(
+            [m.message for m in self.friendship.messages.all()], ["first", "second", "third"]
+        )
+
+    def test_created_at_is_set_by_the_server(self):
+        before = timezone.now()
+        message = Message.objects.create(
+            friendship=self.friendship, sender=self.alice, receiver=self.bob, message="hi"
+        )
+        self.assertGreaterEqual(message.created_at, before)
+
+    def test_resolve_friendship_returns_the_other_member(self):
+        resolved = resolve_friendship(str(self.friendship.public_id), self.alice)
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved[1], self.bob)
+
+    def test_resolve_friendship_rejects_a_stranger(self):
+        stranger = make_user("carol", "c@example.com")
+        self.assertIsNone(resolve_friendship(str(self.friendship.public_id), stranger))
 
 
 class TokenTests(TestCase):
@@ -341,16 +488,14 @@ class ExceptionReportFilterTests(TestCase):
             "REDIS_URL would be shown in cleartext on an error page",
         )
 
-    def test_mongo_url_is_masked_in_request_meta(self):
-        # MONGO_URL is an environment variable rather than a Django setting,
-        # so it never reaches get_safe_settings(). It does reach request.META
-        # under WSGI, where servers copy os.environ into the environ dict, and
-        # the debug page renders that table. Django applies the same regex
-        # there via get_safe_request_meta.
-        self.request.META["MONGO_URL"] = "mongodb+srv://user:sup3rsecret@c.mongodb.net/"
+    def test_database_url_is_masked_in_request_meta(self):
+        # DATABASE_URL reaches request.META under WSGI, where servers copy
+        # os.environ into the environ dict, and the debug page renders that
+        # table. Django applies the same regex there via get_safe_request_meta.
+        self.request.META["DATABASE_URL"] = "postgres://user:sup3rsecret@db.example.com:5432/orca"
         safe_meta = self.filt.get_safe_request_meta(self.request)
 
-        self.assertEqual(safe_meta["MONGO_URL"], self.filt.cleansed_substitute)
+        self.assertEqual(safe_meta["DATABASE_URL"], self.filt.cleansed_substitute)
         self.assertNotIn("sup3rsecret", repr(safe_meta))
 
     def test_secrets_are_masked(self):
@@ -358,7 +503,7 @@ class ExceptionReportFilterTests(TestCase):
         for name in ["SECRET_KEY", "FERNET_KEY", "EMAIL_HOST_PASSWORD", "EMAIL_HOST_USER"]:
             self.assertEqual(safe[name], self.filt.cleansed_substitute, f"{name} leaked")
 
-    @override_settings(MONGO_URL="mongodb+srv://user:sup3rsecret@c.mongodb.net/")
+    @override_settings(DATABASE_URL="postgres://user:sup3rsecret@db.example.com:5432/orca")
     def test_no_password_survives_in_the_settings_dump(self):
         # Scans the whole rendered dump rather than one key, so a password
         # cannot slip through via some other setting that happens to hold it.

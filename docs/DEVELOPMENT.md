@@ -18,17 +18,22 @@ Docker.
 
 ## Choosing how to run it
 
-Orca needs three things: the Python app, a MongoDB server, and a Redis server.
+Orca needs three things: the Python app, a PostgreSQL server, and a Redis
+server.
 
 | | Local | Docker |
 |---|---|---|
-| You install | Python, MongoDB, Redis | Docker only |
-| MongoDB and Redis | you run them, or use hosted | started for you as containers |
+| You install | Python, PostgreSQL, Redis | Docker only |
+| PostgreSQL and Redis | you run them, or use hosted | started for you as containers |
 | Code changes | picked up on reload | restart the container |
 | Best for | day-to-day development | trying it out, or a deployment-like run |
 
-Docker is the fastest way to a working app because it brings MongoDB and Redis
-with it. There is nothing to install and nothing to point at.
+Docker is the fastest way to a working app because it brings PostgreSQL and
+Redis with it. There is nothing to install and nothing to point at.
+
+A common middle path: run the databases as containers and the app on your
+host. `docker compose up -d postgres redis` publishes PostgreSQL on
+`127.0.0.1:5434`, which is what the example `DATABASE_URL` below points at.
 
 ---
 
@@ -37,14 +42,20 @@ with it. There is nothing to install and nothing to point at.
 ### 1. Prerequisites
 
 - **Python 3.12 or newer**
-- **MongoDB** running locally, or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster
+- **PostgreSQL 14 or newer**, running locally, hosted, or as the bundled container
 - **Redis** running locally
 
 On Debian or Ubuntu:
 
 ```bash
-sudo apt install redis-server mongodb
-sudo systemctl enable --now redis-server
+sudo apt install redis-server postgresql
+sudo systemctl enable --now redis-server postgresql
+```
+
+Or skip installing PostgreSQL entirely and use the container:
+
+```bash
+docker compose up -d postgres
 ```
 
 Check Redis is reachable:
@@ -75,11 +86,14 @@ Open `.env` and set, at minimum:
 
 ```env
 SECRET_KEY=<generate one, see below>
-MONGO_URL=mongodb://127.0.0.1:27017/
+DATABASE_URL=postgres://orca:orca@127.0.0.1:5434/orca
 REDIS_URL=redis://127.0.0.1:6379
 EMAIL_HOST_USER=you@gmail.com
 EMAIL_HOST_PASSWORD=<gmail app password>
 ```
+
+`DATABASE_URL` is required. There is no SQLite fallback: without it the app
+refuses to start rather than silently using an empty local database.
 
 Generate the two keys:
 
@@ -90,17 +104,14 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 The first is `SECRET_KEY`, the second is `FERNET_KEY`.
 
-### 4. Initialise the databases
+### 4. Initialise the database
 
 ```bash
-python manage.py migrate       # SQLite: auth, sessions, OTP table
-python manage.py init_mongo    # MongoDB: unique indexes
+python manage.py migrate       # every table: auth, sessions, OTPs, app data
 ```
 
-`init_mongo` is the only command that needs a live MongoDB. `migrate`, `check`,
-and the test suite all run without one, because the Mongo connection is lazy.
-
-Optionally create an admin account:
+Optionally create an admin account. Every model is registered in the admin, so
+this is also how you browse profiles, friend requests and messages:
 
 ```bash
 python manage.py createsuperuser
@@ -130,21 +141,25 @@ python manage.py runasgi --no-reload
 
 `docker-compose.yml` defines three services:
 
+`docker-compose.yml` defines four services:
+
 | Service | Image | Published to host | Purpose |
 |---------|-------|-------------------|---------|
 | `django` | built from `Dockerfile` | yes, on `127.0.0.1:${PORT}` | the app |
-| `mongo` | `mongo:7` | no | database, data kept in the `mongo_data` volume. Profile `bundled-mongo` |
+| `postgres` | `postgres:17-alpine` | yes, on `127.0.0.1:${POSTGRES_PORT}` | database, data kept in the `postgres_data` volume. Profile `bundled-postgres` |
 | `redis` | `redis:7-alpine` | no | Channels layer and cache. Profile `bundled-redis` |
+| `pgadmin` | `dpage/pgadmin4` | yes, on `127.0.0.1:${PGADMIN_PORT}` | optional web UI for the database. Profile `pgadmin` |
 
-**Yes, MongoDB can run as a container**, so you do not need MongoDB installed
-or an Atlas account. The same goes for Redis. Each is behind its own compose
-profile, so you can run both, neither, or one of each. A container outside an
-active profile is never created and uses no memory. See
+**Yes, PostgreSQL can run as a container**, so you do not need it installed.
+The same goes for Redis. Each is behind its own compose profile, so you can run
+both, neither, or one of each. A container outside an active profile is never
+created and uses no memory. See
 [Choosing your databases](#choosing-your-databases).
 
-Neither database publishes a host port. They are reachable only from the app
-container over the compose network, which is why the app addresses them as
-`mongo:27017` and `redis:6379`.
+Inside the compose network the app addresses them as `postgres:${POSTGRES_PORT}`
+and `redis:6379`. PostgreSQL and pgAdmin also publish a host port so psql, an
+IDE, or a browser on your machine can reach them; both are bound to `127.0.0.1`
+unless you set `DOCKER_BIND`.
 
 ### 1. Configure
 
@@ -154,7 +169,7 @@ cp .env.example .env
 
 Set `SECRET_KEY`, `FERNET_KEY`, and your email credentials as described above.
 
-**Leave `MONGO_URL` and `REDIS_URL` blank** and keep
+**Leave `DATABASE_URL` and `REDIS_URL` blank** and keep
 `COMPOSE_PROFILES=bundled-db` to run both databases as containers. Nothing to
 install. To use hosted databases, or a mix of the two, see
 [Choosing your databases](#choosing-your-databases).
@@ -184,7 +199,7 @@ the same environment as your laptop:
 | `DEBUG` | `False` | Error pages would otherwise dump configuration to anyone who can reach the port. Set `DOCKER_DEBUG=True` to override. |
 | `SECURE_SSL_REDIRECT` | `False` | The container speaks HTTP; the proxy in front terminates TLS and does the redirect. Set `DOCKER_SSL_REDIRECT=True` to override. |
 
-`MONGO_URL` and `REDIS_URL` are *not* overridden. Your `.env` decides. See
+`DATABASE_URL` and `REDIS_URL` are *not* overridden. Your `.env` decides. See
 [Choosing your databases](#choosing-your-databases).
 
 Because `DEBUG` is off, the session cookie is marked `Secure`. Browsers treat
@@ -192,8 +207,8 @@ Because `DEBUG` is off, the session cookie is marked `Secure`. Browsers treat
 the container over plain HTTP from another machine, sign-in will fail until
 TLS is in place. Set `DOCKER_DEBUG=True` for that kind of testing.
 
-Migrations, MongoDB indexes, and `collectstatic` all run automatically on
-container start via `entrypoint.sh`.
+Migrations and `collectstatic` run automatically on container start via
+`entrypoint.sh`.
 
 ### 3. Everyday use
 
@@ -237,41 +252,70 @@ Also update `APP_URL` to match, since QR codes embed it.
 
 ## Choosing your databases
 
-Orca needs MongoDB and Redis. Under Docker each can be a bundled container or
-something you host yourself, chosen independently.
+Orca needs PostgreSQL and Redis. Under Docker each can be a bundled container
+or something you host yourself, chosen independently.
 
 Two things in `.env` decide it:
 
 - **`COMPOSE_PROFILES`** controls which database *containers exist*.
-- **`MONGO_URL` / `REDIS_URL`** tell the app where to connect. Leave a URL
+- **`DATABASE_URL` / `REDIS_URL`** tell the app where to connect. Leave a URL
   blank for anything running as a container.
 
-| What you want | `COMPOSE_PROFILES` | `MONGO_URL` | `REDIS_URL` |
+| What you want | `COMPOSE_PROFILES` | `DATABASE_URL` | `REDIS_URL` |
 |---|---|---|---|
 | Both as containers | `bundled-db` | blank | blank |
-| Both hosted | blank | `mongodb+srv://...` | `redis://host:6379` |
-| Mongo hosted, Redis in Docker | `bundled-redis` | `mongodb+srv://...` | blank |
-| Mongo in Docker, Redis hosted | `bundled-mongo` | blank | `redis://host:6379` |
+| Both hosted | blank | `postgres://...` | `redis://host:6379` |
+| Postgres hosted, Redis in Docker | `bundled-redis` | `postgres://...` | blank |
+| Postgres in Docker, Redis hosted | `bundled-postgres` | blank | `redis://host:6379` |
+| Both as containers, plus pgAdmin | `bundled-db,pgadmin` | blank | blank |
 
-The list is comma-separated, so `bundled-mongo,bundled-redis` is identical to
+The list is comma-separated, so `bundled-postgres,bundled-redis` is identical to
 `bundled-db`.
 
 A container outside an active profile is **never created**, so it uses no
-memory. That is the point of the profiles: with a hosted MongoDB you should
-not have an idle `mongo` container sitting there.
+memory. That is the point of the profiles: with a hosted PostgreSQL you should
+not have an idle `postgres` container sitting there.
+
+### Browsing the database with pgAdmin
+
+```env
+COMPOSE_PROFILES=bundled-db,pgadmin
+```
+
+Then `docker compose up -d` and open `http://127.0.0.1:5050`. It runs in
+single-user desktop mode, so it opens straight into the browser with no login
+screen; `PGADMIN_EMAIL` and `PGADMIN_PASSWORD` are the account it creates
+internally. Register a server pointing at:
+
+| Field | Value |
+|---|---|
+| Host | `postgres` |
+| Port | `POSTGRES_PORT`, default `5434` |
+| Database | `POSTGRES_DB`, default `orca` |
+| Username / password | `POSTGRES_USER` / `POSTGRES_PASSWORD` |
+
+Use the host name `postgres`, not `127.0.0.1`: inside the pgAdmin container
+loopback means pgAdmin itself.
+
+Because desktop mode asks for no password, anyone who can reach port 5050 has
+full access to the database. That is fine on `127.0.0.1`; it is why
+`DOCKER_BIND` should stay as it is on anything reachable from a network.
+
+For most day-to-day inspection Django's own admin at `/admin/` is quicker,
+since every model is registered there.
 
 ### Not running Docker?
 
 `COMPOSE_PROFILES` is ignored entirely. Just set both URLs to real addresses:
 
 ```env
-MONGO_URL=mongodb://127.0.0.1:27017/
+DATABASE_URL=postgres://orca:orca@127.0.0.1:5434/orca
 REDIS_URL=redis://127.0.0.1:6379
 ```
 
 ### Why one variable cannot do it
 
-It would be neater if a filled-in `MONGO_URL` simply switched the container
+It would be neater if a filled-in `DATABASE_URL` simply switched the container
 off. Compose cannot do that: whether a service exists is resolved before
 variable values are looked at, so an empty variable cannot disable a service.
 The profile is the only thing that stops the container being created.
@@ -279,23 +323,24 @@ The profile is the only thing that stops the container being created.
 ### The one address that never works in Docker
 
 Inside a container, `127.0.0.1` means *that container*, not your host. A `.env`
-holding `mongodb://127.0.0.1:27017/` will not reach a MongoDB on your machine;
-it times out looking inside the container.
+holding `postgres://orca:orca@127.0.0.1:5434/orca` will not reach a PostgreSQL
+on your machine; it fails looking inside the container.
 
 Either leave the URL blank and use the bundled container, or give it an address
 the container can reach. `entrypoint.sh` warns at startup if it spots a
 loopback address, so you are not left staring at a connection timeout.
 
-### Using MongoDB Atlas
+### Using a hosted PostgreSQL
 
 ```env
 COMPOSE_PROFILES=bundled-redis
-MONGO_URL=mongodb+srv://user:password@cluster.mongodb.net/
+DATABASE_URL=postgres://user:password@db.example.com:5432/orca
 REDIS_URL=
 ```
 
-That runs Redis as a container and MongoDB in Atlas, with no `mongo` container
-created. Remember to allow your server's IP in the Atlas network access list.
+That runs Redis as a container and the database with your provider, with no
+`postgres` container created. Remember to allow your server's address in the
+provider's firewall, and to append `?sslmode=require` if they expect TLS.
 
 ---
 
@@ -309,7 +354,7 @@ commit it.
 | Variable | Description |
 |----------|-------------|
 | `SECRET_KEY` | Django secret, used for sessions and signing. Generate a fresh one, never reuse an example value. |
-| `MONGO_URL` | MongoDB connection URI. Leave blank under Docker to use the bundled container. See [Choosing your databases](#choosing-your-databases). |
+| `DATABASE_URL` | PostgreSQL connection URI, `postgres://user:password@host:port/dbname`. Required, with no fallback. Leave blank under Docker to use the bundled container. See [Choosing your databases](#choosing-your-databases). |
 | `EMAIL_HOST_USER` | Gmail address that sends sign-in codes. |
 | `EMAIL_HOST_PASSWORD` | Gmail **app password**, not your account password. |
 
@@ -319,7 +364,7 @@ commit it.
 |----------|---------|-------------|
 | `DEBUG` | `False` | `True` for development. Never `True` in a deployment. |
 | `ALLOWED_HOSTS` | `127.0.0.1,localhost` | Comma-separated hostnames to serve. Set to your domain in production. Never `*`. |
-| `COMPOSE_PROFILES` | `bundled-db` | Docker only. Which database containers to create: `bundled-db`, `bundled-mongo`, `bundled-redis`, or blank for none. |
+| `COMPOSE_PROFILES` | `bundled-db` | Docker only. Which containers to create: `bundled-db`, `bundled-postgres`, `bundled-redis`, `pgadmin`, or blank for none. Comma-separated. |
 | `FERNET_KEY` | derived from `SECRET_KEY` | Dedicated key for profile links. Setting it lets you rotate `SECRET_KEY` without breaking every shared link. |
 | `APP_URL` | none | Public base URL. Used for CSRF trusted origins and embedded in QR codes. |
 | `REDIS_URL` | bundled container | Redis URI. Leave blank under Docker to use the bundled container. Also switches the cache from in-memory to Redis. |
@@ -328,6 +373,13 @@ commit it.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `POSTGRES_DB` | `orca` | Bundled container only. Database created on first start. Ignored when `DATABASE_URL` points at a hosted server. |
+| `POSTGRES_USER` | `orca` | Bundled container only. Role created on first start. |
+| `POSTGRES_PASSWORD` | `orca` | Bundled container only. Change it before running anywhere but your own machine. |
+| `POSTGRES_PORT` | `5434` | Port the bundled PostgreSQL both listens on and is published to. Not 5432, so it stays clear of a PostgreSQL already installed on the host. |
+| `PGADMIN_EMAIL` | `admin@example.com` | Login for the optional pgAdmin container. |
+| `PGADMIN_PASSWORD` | `admin` | Password for the same. Local use only. |
+| `PGADMIN_PORT` | `5050` | Port pgAdmin both listens on and is published to. |
 | `HOST` | `127.0.0.1` | Bind address for `runasgi`. Ignored in Docker, which always binds `0.0.0.0`. |
 | `PORT` | `8000` local, `8004` Docker | Bind port. In Docker this also sets the published host port. |
 | `APP_NAME` | `orca2echo` | App package name, used to locate the QR output directory. |
@@ -374,8 +426,7 @@ The OTP then appears in the server log. Do not commit that change.
 | `python manage.py runasgi` | Run the app with WebSocket support |
 | `python manage.py runasgi --host 0.0.0.0 --port 9000` | Override bind address |
 | `python manage.py runasgi --no-reload` | Disable auto-reload |
-| `python manage.py migrate` | Apply SQLite migrations |
-| `python manage.py init_mongo` | Create MongoDB indexes, safe to re-run |
+| `python manage.py migrate` | Apply database migrations |
 | `python manage.py createsuperuser` | Create an admin account |
 | `python manage.py test` | Run the test suite |
 | `flake8 .` | Lint |
@@ -391,14 +442,16 @@ python manage.py test
 flake8 .
 ```
 
-The suite needs **neither MongoDB nor Redis**. MongoDB calls are patched and
-the cache is overridden to local memory, so it runs on a bare checkout. This is
-also what CI does, see [`.github/workflows/django.yml`](../.github/workflows/django.yml).
+The suite needs **PostgreSQL** but not Redis: the test runner creates and drops
+its own database, and the cache is overridden to local memory. `DATABASE_URL`
+must be set, and the role in it needs permission to create databases. CI starts
+a `postgres:17-alpine` service container for exactly this, see
+[`.github/workflows/django.yml`](../.github/workflows/django.yml).
 
 Coverage is focused on authentication and authorization: OTP lifecycle, the
-signin and verify views, chat access control, token handling, and form
-validation. The MongoDB service layer and the WebSocket consumer are not yet
-covered.
+signin and verify views, chat access control, the friend request lifecycle,
+message ordering, token handling, and form validation. The WebSocket consumer
+is not yet covered by automated tests.
 
 ---
 
@@ -418,9 +471,9 @@ Docker defaults `DEBUG` to `False` regardless of what `.env` says, and
 directly on a host has no such guard, so set it yourself.
 
 Django masks settings whose names match `KEY`, `SECRET`, `PASS` and similar,
-but **not** connection strings. `MONGO_URL` embeds its own username and
+but **not** connection strings. `DATABASE_URL` embeds its own username and
 password and would otherwise be printed in full. `orca/reporting.py` widens the
-mask to cover `MONGO`, `REDIS`, `EMAIL`, `URL`, `DSN` and friends, so those
+mask to cover `DATABASE`, `REDIS`, `EMAIL`, `URL`, `DSN` and friends, so those
 stay hidden even if `DEBUG` is left on by accident. Treat that as a safety net,
 not permission to run with `DEBUG=True`.
 
@@ -445,13 +498,17 @@ DEBUG=False python manage.py check --deploy
 This should report no issues. It covers cookie flags, the SSL redirect, and
 HSTS.
 
-### Databases stay private
+### Keep the databases private
 
-`docker-compose.yml` publishes only the app port. MongoDB and Redis have no
-`ports:` entry, so they are reachable only from the app container over the
-compose network, never from the outside. If you add a `ports:` mapping to
-either, you are exposing an unauthenticated database to whoever can reach the
-host. Do not.
+Redis has no `ports:` entry, so it is reachable only from the app container
+over the compose network. PostgreSQL and pgAdmin do publish a port, because
+being able to point psql or an IDE at the database is worth a lot during
+development, but both are bound to `127.0.0.1` by default and so are reachable
+from this machine only.
+
+`DOCKER_BIND=0.0.0.0` widens *all* of those mappings at once, including the
+database and pgAdmin. On a server, leave it alone and reach them over an SSH
+tunnel instead.
 
 ### TLS
 
@@ -489,10 +546,15 @@ longer decrypt. They rebuild on the next page load.
 Redis is not reachable, or you started the app with `runserver`. Check
 `redis-cli ping` and use `runasgi`.
 
-**`ServerSelectionTimeoutError` from `init_mongo`**
-MongoDB is not running or `MONGO_URL` is wrong. Under Docker this is expected
-if you started the app alone rather than with `docker compose up`. Note that
-only `init_mongo` fails fast this way; other commands connect lazily.
+**`ImproperlyConfigured: DATABASE_URL is not set`**
+Copy `.env.example` to `.env` and fill in `DATABASE_URL`. There is deliberately
+no SQLite fallback, so the app fails fast instead of starting against an empty
+local database.
+
+**`connection refused` or `OperationalError` from `migrate`**
+PostgreSQL is not running, or `DATABASE_URL` points somewhere it is not. If you
+are using the bundled container, check `docker compose ps postgres` and note
+that the published port is `5434`, not `5432`.
 
 **"An error occurred." on the sign-in page**
 Almost always email credentials. See

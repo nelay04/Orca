@@ -1,4 +1,4 @@
-"""Service for user authentication -> sqlite"""
+"""Service for user authentication: OTP delivery, tokens, and share links."""
 
 import base64
 import hashlib
@@ -18,9 +18,7 @@ from django.core.mail import send_mail  # type: ignore
 from django.template.loader import render_to_string  # type: ignore
 from django.utils.html import strip_tags  # type: ignore
 
-from .mongo_service import (
-    find_an_object,
-)
+from .data_service import get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +27,9 @@ def auth_user_data(request):
     try:
         if "full_name" not in request.session or "base64_string" not in request.session:
             # print("no data in session session")
-            user_name = request.user.username
-            user_data = find_an_object(
-                collection_name="user_profile",
-                search_criteria={"user_name": user_name},
-            )
-            base64_string = user_data.get("profile_picture")
-            # Render the page and pass the user to the template
-            name = find_an_object(
-                collection_name="user_data",
-                search_criteria={"user_name": user_name},
-            )
-            full_name = name.get("full_name")
+            profile = get_profile(request.user.username)
+            base64_string = profile.profile_picture
+            full_name = profile.full_name
             request.session["base64_string"] = base64_string
             request.session["full_name"] = full_name
         else:
@@ -60,11 +49,15 @@ def auth_user_data(request):
 
 
 def generate_otp():
-    # Generate a 6-digit OTP across the full 000000-999999 range.
+    # Generate a 6-digit OTP in the 111111-999999 range.
     # Uses secrets rather than random: this value is the only authentication
     # factor, and random is seeded predictably enough to be guessable.
-    otp = secrets.randbelow(1_000_000)
-    return f"{otp:06d}"  # Formats the number to be 6 digits with leading zeros
+
+    # randbelow(888889) returns a number from 0 to 888888.
+    # Adding 111111 shifts the range to 111111 - 999999.
+    otp = secrets.randbelow(888_889) + 111_111
+
+    return str(otp)
 
 
 def extract_first_name(name: str) -> str:
@@ -328,18 +321,15 @@ def generate_profile_qr(user_name, short_name, search_id):
 
 def get_profile_share_context(user_name: str, request) -> dict:
     """Helper to generate profile QR and share URL for context."""
-    user_data = find_an_object(
-        collection_name="user_data",
-        search_criteria={"user_name": user_name},
-    )
+    profile = get_profile(user_name)
     img_name = generate_profile_qr(
         user_name,
-        user_data.get("short_name") if user_data else None,
-        user_data.get("search_id") if user_data else None,
+        profile.short_name if profile else None,
+        profile.search_id if profile else None,
     )
-    if user_data:
-        _enc_sn = encrypt_token(str(user_data.get("short_name", "")))
-        _enc_si = encrypt_token(str(user_data.get("search_id", "")))
+    if profile:
+        _enc_sn = encrypt_token(str(profile.short_name or ""))
+        _enc_si = encrypt_token(str(profile.search_id or ""))
         _host = request.build_absolute_uri("/").rstrip("/")
         profile_share_url = (
             f"{_host}/search-profile?short-name={_enc_sn}&id-number={_enc_si}"

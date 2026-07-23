@@ -1,7 +1,7 @@
 # Orca (orca2echo)
 
 <p align="center">
-  A real-time web-based chat application built with <strong>Django</strong>, <strong>Django Channels</strong>, <strong>Redis</strong>, and <strong>MongoDB</strong>.
+  A real-time web-based chat application built with <strong>Django</strong>, <strong>Django Channels</strong>, <strong>PostgreSQL</strong>, and <strong>Redis</strong>.
 </p>
 
 <p align="center">
@@ -58,7 +58,7 @@ Manage your connections, view active friends, and handle incoming requests on th
 
 ## Quick start
 
-The fastest path is Docker, which brings MongoDB and Redis with it. Nothing
+The fastest path is Docker, which brings PostgreSQL and Redis with it. Nothing
 else to install.
 
 ```bash
@@ -67,8 +67,9 @@ cd orca
 
 cp .env.example .env
 # Edit .env: set SECRET_KEY, FERNET_KEY, and your Gmail app password.
-# Leave MONGO_URL and REDIS_URL blank to use the bundled database containers.
-# To use MongoDB Atlas instead, set MONGO_URL and adjust COMPOSE_PROFILES.
+# Leave DATABASE_URL and REDIS_URL blank to use the bundled database containers.
+# To use a hosted PostgreSQL instead, set DATABASE_URL and adjust COMPOSE_PROFILES.
+# Add pgadmin to COMPOSE_PROFILES for a web UI on http://127.0.0.1:5050
 # See docs/DEVELOPMENT.md#choosing-your-databases
 
 docker compose up --build -d
@@ -76,14 +77,15 @@ docker compose up --build -d
 
 Open `http://127.0.0.1:8004/`.
 
-Prefer to run it directly? You will need Python 3.12+, MongoDB, and Redis:
+Prefer to run it directly? You will need Python 3.12+, PostgreSQL, and Redis.
+The databases can still be the bundled containers:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # then fill it in
+docker compose up -d postgres redis   # or use your own servers
 python manage.py migrate
-python manage.py init_mongo
 python manage.py runasgi
 ```
 
@@ -99,8 +101,8 @@ Full setup, every environment variable, and troubleshooting:
 
 | Document | Contents |
 |----------|----------|
-| **[Development guide](docs/DEVELOPMENT.md)** | Running locally or with Docker, environment variables, what `MONGO_URL` should be, email setup, commands, troubleshooting |
-| **[Architecture](docs/ARCHITECTURE.md)** | Tech stack, the two-database split, data model, request flows, real-time messaging design, security model, project layout |
+| **[Development guide](docs/DEVELOPMENT.md)** | Running locally or with Docker, environment variables, what `DATABASE_URL` should be, pgAdmin, email setup, commands, troubleshooting |
+| **[Architecture](docs/ARCHITECTURE.md)** | Tech stack, data model, request flows, real-time messaging design, security model, project layout |
 
 ---
 
@@ -110,13 +112,11 @@ Full setup, every environment variable, and troubleshooting:
 |-------|-----------|
 | Frontend | HTML, CSS, JavaScript |
 | Backend | Python, Django, Django Channels (WebSockets) |
-| Relational store | SQLite (Django auth and OTP records) |
-| Document store | MongoDB (profiles, friendships, messages) |
+| Database | PostgreSQL (auth, OTPs, profiles, friendships, messages) |
 | In-memory store | Redis (Channels layer and rate limiting) |
 | Security | `cryptography.fernet` (authenticated symmetric encryption) |
 
-See [Architecture](docs/ARCHITECTURE.md) for how these fit together and why
-there are two databases.
+See [Architecture](docs/ARCHITECTURE.md) for how these fit together.
 
 ---
 
@@ -127,8 +127,8 @@ python manage.py test
 flake8 .
 ```
 
-The suite needs neither MongoDB nor Redis, so it runs on a bare checkout. CI
-runs the same on Python 3.12 and 3.13.
+The suite needs PostgreSQL (it creates and drops its own test database) but
+not Redis. CI runs the same on Python 3.12 and 3.13.
 
 ---
 
@@ -139,20 +139,16 @@ Honest list of what is not done:
 
 - **No message pagination.** A conversation loads its full history on every
   open, which will not scale past a few thousand messages.
-- **Timestamps are client-supplied.** The browser sends `created_at`, so clock
-  skew or a crafted WebSocket frame can misorder messages. These should be
-  generated server-side.
-- **Messages are stored in plaintext** in MongoDB. There is no end-to-end
-  encryption; the link encryption covers URLs, not message bodies.
-- **Split persistence.** Django auth and OTPs live in SQLite while everything
-  else lives in MongoDB. A single store would be simpler.
-- **The MongoDB layer is hand-rolled.** The model classes are thin insert
-  wrappers with no schema validation or migration story.
+- **Messages are stored in plaintext.** There is no end-to-end encryption; the
+  link encryption covers URLs, not message bodies.
+- **Chat sockets are only authorized per message.** A client is admitted to the
+  Channels group named by the URL without a membership check, so a non-member
+  who learned a conversation id could observe traffic, though not write to it.
 - **No read receipts, typing indicators, presence, or media attachments.**
 - **Push notification keys are configurable but unused.** No service worker
   subscription flow is wired up yet.
-- **Test coverage is focused on auth and authorization.** The MongoDB service
-  layer and the WebSocket consumer are not yet covered.
+- **Test coverage is focused on auth and authorization.** The WebSocket
+  consumer is not yet covered by automated tests.
 
 ---
 

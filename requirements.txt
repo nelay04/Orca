@@ -4,7 +4,7 @@ channels==4.3.2
 channels-redis==4.3.0
 uvicorn[standard]==0.51.0
 whitenoise==6.12.0
-pymongo==4.17.0
+psycopg[binary]==3.2.10
 python-dotenv==1.2.2
 cryptography==49.0.0
 qrcode==8.2
