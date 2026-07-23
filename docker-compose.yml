@@ -130,7 +130,7 @@ services:
       # Single-user desktop mode: it opens straight into the browser with no
       # login screen, so anyone who can reach the port owns the database.
       # Keep it on 127.0.0.1; do not run this on a shared host.
-      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_SERVER_MODE: ${PGADMIN_CONFIG_SERVER_MODE:-False}
       # Same idea as PGPORT above: listen on PGADMIN_PORT instead of the
       # default 80 so the mapping stays the same port on both sides.
       #

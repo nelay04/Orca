@@ -380,6 +380,7 @@ commit it.
 | `PGADMIN_EMAIL` | `admin@example.com` | Login for the optional pgAdmin container. |
 | `PGADMIN_PASSWORD` | `admin` | Password for the same. Local use only. |
 | `PGADMIN_PORT` | `5050` | Port pgAdmin both listens on and is published to. |
+| `PGADMIN_CONFIG_SERVER_MODE` | `False` | Single-user desktop mode (no login screen). Only set to `True` behind a real login. |
 | `HOST` | `127.0.0.1` | Bind address for `runasgi`. Ignored in Docker, which always binds `0.0.0.0`. |
 | `PORT` | `8000` local, `8004` Docker | Bind port. In Docker this also sets the published host port. |
 | `APP_NAME` | `orca2echo` | App package name, used to locate the QR output directory. |
