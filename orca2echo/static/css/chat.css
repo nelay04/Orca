@@ -86,6 +86,7 @@
     font-size: 11px;
     line-height: 1;
     white-space: nowrap;
+    user-select: none;
 }
 
 .right_time {
