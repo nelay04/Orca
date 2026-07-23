@@ -29,6 +29,10 @@ otpInputs.forEach((input, index) => {
   });
 });
 
+// Set when the user submits the OTP, so the refresh guard below does not raise
+// its "Leave site?" prompt on this legitimate navigation.
+let isSubmitting = false;
+
 // Form submission with overlay and disabled button
 document.getElementById('signin-form').addEventListener('submit', function (event) {
   // Prevent multiple form submissions
@@ -42,6 +46,7 @@ document.getElementById('signin-form').addEventListener('submit', function (even
 
   // Optional: If you need to prevent double submission
   event.preventDefault();  // Prevent default form submission
+  isSubmitting = true;  // Let the pending navigation through without the refresh prompt
 
   // Submit the form manually after a delay to simulate an async process (for demonstration)
   setTimeout(function () {
@@ -71,7 +76,7 @@ const countdown = setInterval(function () {
 
 // Prevent page refresh using F5 or Ctrl+R (desktop)
 window.addEventListener('beforeunload', function (event) {
-  if (timer > 0) {
+  if (timer > 0 && !isSubmitting) {
     event.preventDefault(); // Prevent the refresh
     event.returnValue = ''; // Show confirmation dialog
   }

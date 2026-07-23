@@ -552,7 +552,7 @@ body {
     font-family: 'Georgia', serif;
     color: var(--text-color);
     line-height: 1.35;
-    text-align: justify;
+    text-align: left;
     overflow-wrap: anywhere;
 }
 
