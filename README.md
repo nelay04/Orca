@@ -153,7 +153,6 @@ Honest list of what is not done:
   subscription flow is wired up yet.
 - **Test coverage is focused on auth and authorization.** The MongoDB service
   layer and the WebSocket consumer are not yet covered.
-- **Mobile-only by design.** Desktop viewports are redirected to a notice page.
 
 ---
 

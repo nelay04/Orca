@@ -1,187 +1,179 @@
-body {
-    opacity: 0.8;
-    margin: 0;
-    padding: 0;
-    background: rgb(187, 183, 238);
-    background: linear-gradient(90deg, rgba(187, 183, 238, 1) 0%, rgba(119, 108, 204, 1) 100%);
-    min-height: 87.25vh;
-    font-family: 'Roboto', sans-serif;
-    /* overflow: hidden; */
-  }
+/* Friend search form. Shell styles come from index_base.css. */
 
 .container {
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, rgb(201, 197, 241) 0%, rgb(146, 137, 214) 100%);
     user-select: none;
-  }
-  
-  .logo_section {
-    width: inherit;
-    height: 30%;
-  }
-  
-  .logo_section h1,
-  .logo_section h2 {
-    margin: 0;
-    padding: 0;
-  }
-  
-  
-  .logo_section h1 {
-    margin-left: 10vw;
-    margin-top: 8vh;
-    font-family: 'Roboto', sans-serif;
+}
+
+.logo_section {
+    padding: clamp(1.75rem, 5vh, 3.5rem) clamp(1.5rem, 8vw, 3rem) clamp(1.25rem, 3vh, 2rem);
+}
+
+.logo_section h1 {
     font-weight: 500;
-    font-style: normal;
-    font-size: 6em;
-    color: rgba(255, 255, 255, 1);
-    text-align: left;
-    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
-  }
-  
-  .logo_section h2 {
-    margin-left: 12.5vw;
-    font-family: 'Roboto', sans-serif;
-    font-weight: 400;
-    font-style: normal;
-    text-align: left;
-    font-size: 1.2em;
-    color: rgba(255, 255, 255, 1);
-    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
-  }
-  
-  
-  .form_section {
-    width: inherit;
-    height: 70%;
-    background-color: rgba(0, 0, 0, 0.6);
-    border-top-left-radius: 30px;
-    border-top-right-radius: 30px;
-    padding-top: 5%;
-  }
-  
-  .form_header {
-    text-align: left;
-    padding-left: 10%;
-    padding-bottom: 2%;
+    font-size: clamp(2.75rem, 11vw, 4.5rem);
+    line-height: 1.05;
     color: rgb(255, 255, 255);
-    font-weight: 500;
-    font-size: 2.5em;
-  }
-  
-  .form_group {
-    padding-left: 10%;
-    padding-top: 1%;
-    position: relative;
-  }
-  
-  .form_group label {
-    font-size: 1.35em;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.logo_section h2 {
+    padding-left: 0.5rem;
     font-weight: 400;
-    color: white;
-    padding-bottom: 10vh;
-  }
-  
-  .form_group input {
-    margin-top: 1vh;
-    width: 79vw;
+    font-size: clamp(1rem, 3.5vw, 1.2rem);
+    color: rgb(255, 255, 255);
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.form_section {
+    flex: 1;
+    padding: clamp(1.75rem, 5vh, 3rem) 0 clamp(2rem, 5vh, 3rem);
+    background-color: rgba(0, 0, 0, 0.55);
+    border-radius: 30px 30px 0 0;
+}
+
+.form_container {
+    width: 100%;
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: 0 clamp(1.5rem, 8vw, 3rem);
+}
+
+.form_header {
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+    font-size: clamp(1.9rem, 7vw, 2.5rem);
+    color: rgb(255, 255, 255);
+}
+
+.form_group {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.form_group label {
+    display: block;
+    font-weight: 400;
+    font-size: clamp(1.05rem, 4vw, 1.2rem);
+    color: rgb(255, 255, 255);
+}
+
+.form_group input {
+    width: 100%;
+    height: 3rem;
+    margin-top: 0.5rem;
+    padding: 0 2.75rem 0 0.5rem;
     background-color: transparent;
-    border-radius: 2px;
-    height: 5vh;
     border: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.7);
+    border-radius: 4px 4px 0 0;
     outline: none;
-    font-size: 1.2em;
-    color: rgba(255, 255, 255);
+    font-size: 1.1rem;
     font-weight: 300;
     letter-spacing: 0.06em;
-    padding-left: 5px;
-    padding-right: 5px;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.7);
-  }
-  
-  
-  .form_group input:focus {
+    color: rgb(255, 255, 255);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.form_group input:focus {
     background: rgba(0, 0, 0, 0.25);
-    border-bottom: 2px solid rgb(255, 255, 255);
-    border-radius: 5px;
-  }
-  
-  .form_group .icon {
+    border-bottom-color: rgb(255, 255, 255);
+}
+
+.form_group .icon {
     position: absolute;
-    right: 12.35vw;
-    top: 72.5%;
-    transition: top 0.3s ease-in-out;
-    transform: translateY(-50%);
-    font-size: 1.4em;
-    color: white;
-  }
-  
-  .form_group input:focus+.icon {
-    top: 20%;
-  }
-  
-  .submit_button {
-    margin-top: 1vh;
-    width: 60vw;
-    height: 5vh;
-    border-radius: 5px;
-    font-size: 1.35em;
-    font-weight: 500;
-    color: white;
+    right: 0.75rem;
+    bottom: 0.8rem;
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.75);
+    pointer-events: none;
+    transition: color 0.2s ease;
+}
+
+.form_group input:focus ~ .icon {
+    color: rgb(255, 255, 255);
+}
+
+.submit_button {
+    margin-top: 0.5rem;
+    height: 3rem;
+    border-radius: 8px;
     background-color: rgba(200, 197, 245, 0.5);
-    display: block;
-    margin: 0 10%;
-  }
-  
-  .submit_button:active {
+    font-size: 1.15rem;
+}
+
+.submit_button:hover {
+    background-color: rgba(200, 197, 245, 0.7);
+    filter: none;
+}
+
+.submit_button:active {
     background-color: rgba(129, 121, 250, 1);
-  } 
-  
-  .overlay_form {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.65);
-    z-index: 9999;
-    display: none;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  
-  .loader {
-    width: 50px;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    border: 8px solid #0000;
-    border-right-color: #a59de6;
-    position: relative;
-    animation: l24 1s infinite linear;
-  }
-  .loader:before,
-  .loader:after {
-    content: "";
-    position: absolute;
-    inset: -8px;
-    border-radius: 50%;
-    border: inherit;
-    animation: inherit;
-    animation-duration: 2s;
-  }
-  .loader:after {
-    animation-duration: 4s;
-  }
-  @keyframes l24 {
-    100% {transform: rotate(1turn)}
-  }
-  
-  .error {
-    color: red;
-    margin: 0;
-    padding-right: 10%;
-    margin-left: 10%;
-    margin-top: 1%;
-  }
+}
+
+.error {
+    margin: -0.75rem 0 1rem;
+    font-size: 0.95rem;
+    color: rgb(255, 128, 128);
+}
+
+/* Tablet: the panel lifts off the bottom edge and becomes a centred card. */
+@media (min-width: 768px) {
+    .container {
+        justify-content: center;
+        gap: 2rem;
+        padding: clamp(2rem, 6vh, 4rem) 2rem;
+    }
+
+    .logo_section {
+        padding: 0;
+        text-align: center;
+    }
+
+    .logo_section h2 {
+        padding-left: 0;
+    }
+
+    .form_section {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 34rem;
+        margin: 0 auto;
+        padding: 2.5rem 0;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 24px;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+    }
+}
+
+/* Desktop: brand on the left, card on the right. */
+@media (min-width: 1024px) {
+    .container {
+        flex-direction: row;
+        align-items: center;
+        gap: clamp(3rem, 8vw, 7rem);
+        padding: 3rem clamp(2rem, 6vw, 5rem);
+    }
+
+    .logo_section {
+        flex: 1 1 0;
+        max-width: 32rem;
+        text-align: left;
+    }
+
+    .logo_section h1 {
+        font-size: clamp(4rem, 5.5vw, 5.5rem);
+    }
+
+    .logo_section h2 {
+        font-size: 1.35rem;
+    }
+
+    .form_section {
+        flex: 0 1 32rem;
+        margin: 0;
+    }
+}

@@ -157,18 +157,6 @@ def index(request):
     )
 
 
-def mobile_only(request):
-    return render(
-        request,
-        "error.html",
-        {
-            "error_code": "403",
-            "error_header": "Error 403 - Forbidden",
-            "error_body": "This website is only available on mobile devices.",
-        },
-    )
-
-
 def signin(request):
     if request.user.is_authenticated:
         # Redirect to a different page (e.g., home or dashboard)

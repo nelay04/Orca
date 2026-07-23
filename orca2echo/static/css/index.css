@@ -1,71 +1,93 @@
-.spacer_1{height:1vh}
-.user{
-    /* background-color: rgba(102, 51, 153,0.2);
-    border-bottom: 1px solid black; */
+/* Conversation list. */
 
-    user-select: none;
-    height: 8.4vh;
-    display: flex;
-    align-items: center; 
-    /* justify-content: center; */
-    padding-left: 5vw;
+.conversation_list {
+    width: 100%;
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 0.75rem clamp(0.5rem, 3vw, 1rem) 2.5rem;
 }
-
-
-.user-img {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-
-.text_area{
-    padding-left: 5vw;
-}
-.name{
-font-size: 1.05rem;
-font-weight: 400;
-}
-.last_message{
-    padding-top: 0.75vh;
-    font-size: 0.9rem;
-font-weight: 300;
-}
-
 
 .user-link {
-    text-decoration: none !important;
-    color: inherit !important;
-    background: none !important;
     display: block;
-}
-.user-link:visited,
-.user-link:active,
-.user-link:focus,
-.user-link:hover {
-    text-decoration: none !important;
-    color: inherit !important;
-    background: none !important;
+    text-decoration: none;
+    color: inherit;
 }
 
-.preview_message_container{
-    height: fit-content;
+.user {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.85rem, 3vw, 1.25rem);
+    padding: 0.8rem clamp(0.6rem, 2vw, 1rem);
+    border-radius: 14px;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.user:hover {
+    background-color: var(--link-hover-color);
+}
+
+.user-img {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.text_area {
+    flex: 1;
+    min-width: 0;
+}
+
+.user .name {
+    font-size: 1.05rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.last_message {
+    margin-top: 0.2rem;
+    font-size: 0.9rem;
+    font-weight: 300;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preview_message_container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.preview_icon {
+    display: flex;
+    align-items: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.preview_icon svg {
     width: 100%;
-    display: flex !important;
-    gap: 2px;
-    /* flex-direction: column; */
+    height: 100%;
 }
-.preview_icon{
-    height: 24px;
-    width: 24px;
-    /* background-color: red; */
-    margin-top: -3px;
+
+.preview_message {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.preview_message{
-  display: inline-block;
-  max-width: 180px; /* adjust based on your layout */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  align-items: center;
+
+.empty_state {
+    padding: 3rem 1rem;
+    font-weight: 300;
+    text-align: center;
+    opacity: 0.7;
 }

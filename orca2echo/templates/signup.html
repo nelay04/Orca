@@ -1,11 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}
 signup | Orca
-{% endblock %}
-
-{% block css %}
-{% load static %}
-<link rel="stylesheet" href="{% static 'css/signup.css' %}" />
 {% endblock %}
 
 {% block body %}
@@ -38,21 +34,19 @@ signup | Orca
         <div class="form_group">
           <label for="dob">Date of birth</label>
           <input type="text" id="dob" name="dob" placeholder="mm/dd/yyyy"
-            onfocus="(this.type='date'); this.max = new Date().toISOString().split('T')[0]" onblur="formatDate(this)"
-            required />
+            onfocus="(this.type='date'); this.max = new Date().toISOString().split('T')[0]"
+            onblur="if (!this.value) { this.type = 'text'; }" required />
         </div>
 
+        {% if error %}
+          <p class="error">{{ error }}</p>
+        {% endif %}
+        <div class="form_group">
+          <button type="submit" class="submit_button" id="submit-button">Next</button>
+        </div>
+      </form>
     </div>
-    {% if error %}
-    <p class="error">{{ error }}</p>
-    {% endif %}
-    <div class="form_group">
-      <br />
-      <button type="submit" class="submit_button" id="submit-button">Next</button>
-    </div>
-    </form>
   </div>
-</div>
 </div>
 
 <!-- Full-screen overlay with loader -->

@@ -125,9 +125,11 @@
     <!-- Overlay -->
     <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
 
-    {% block body %}
+    <main class="page">
+      {% block body %}
 
-    {% endblock %}
+      {% endblock %}
+    </main>
 
     <script src="{% static 'js/index_base.js' %}"></script>
     {% block js %}

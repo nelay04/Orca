@@ -1,20 +1,20 @@
+// The drawer width lives in CSS so that the desktop breakpoint, where the
+// sidebar is always open, is not fought by an inline width.
 function openSidebar() {
-    const sidebar = document.getElementById("mySidebar");
-    const overlay = document.getElementById("overlay");
-
-    sidebar.style.width = "300px";
-    sidebar.classList.add("open");
-    overlay.classList.add("active");
+    document.getElementById("mySidebar").classList.add("open");
+    document.getElementById("overlay").classList.add("active");
 }
 
 function closeSidebar() {
-    const sidebar = document.getElementById("mySidebar");
-    const overlay = document.getElementById("overlay");
-
-    sidebar.style.width = "0";
-    sidebar.classList.remove("open");
-    overlay.classList.remove("active");
+    document.getElementById("mySidebar").classList.remove("open");
+    document.getElementById("overlay").classList.remove("active");
 }
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        closeSidebar();
+    }
+});
 
 // Function to apply theme and toggle icon
 const applyTheme = (theme) => {

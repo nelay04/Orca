@@ -51,9 +51,6 @@ document.getElementById('signin-form').addEventListener('submit', function (even
 
 
 
-// Disable page scrolling on mobile and desktop
-document.body.style.overflow = 'hidden';
-
 // Initialize the timer
 let timer = 15;
 

@@ -36,18 +36,22 @@ OTP Verification | Orca
                 {% endif %}
 
                 <div class="form_group">
-                    <br />
                     <button type="submit" class="submit_button" id="submit-button">Verify</button>
                 </div>
             </form>
             <p id="otpMessage" class="otpMessage">Didn't receive the OTP?<br> Resend in <span id="timer">10</span> seconds.</p>
             <p id="resendMessage" class="resendMessage" style="display: none;">Didn't receive the OTP? <span id="refreshLink"
                     onclick="window.location.reload()"
-                    style="cursor: pointer; color: blue; text-decoration: underline; pointer-events: none;"> Resend</span>.
+                    style="cursor: pointer; color: rgba(255, 255, 255, 0.5); pointer-events: none;"> Resend</span>.
             </p>
 
         </div>
     </div>
+</div>
+
+<!-- Full-screen overlay with loader -->
+<div class="overlay" id="overlay">
+    <div class="loader"></div>
 </div>
 {% endblock %}
 

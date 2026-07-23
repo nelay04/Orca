@@ -27,3 +27,10 @@ django_app.log
 
 # Node
 node_modules
+
+# Copilot and Claude
+.claude/CLAUDE.md
+.claude/commands/*md
+
+.github/copilot-instructions.md
+.github/prompts/*md

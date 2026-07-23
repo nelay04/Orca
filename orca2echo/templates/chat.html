@@ -22,7 +22,7 @@
           right
         {% else %}
           left
-        {% endif %}{% if forloop.last %} last-msg{% endif %}">
+        {% endif %}">
           <div>{{ msg.message }}</div>
           <div class="timestamp {% if msg.is_sender %}
             right_time
@@ -40,8 +40,8 @@
       <input type="hidden" id="friendId" name="friend_id" value="{{ friend_id }}" />
       {# This encrypted_conversation_id comes from your direct_message view context #}
       <input type="hidden" id="encryptedConversationId" value="{{ encrypted_conversation_id }}" />
-      <button type="hidden" class="send-btn" aria-label="Send" style="border-radius: 50px; height: 50px; width: 52px;">
-        <img src="{% static 'icons/paper.png' %}" alt="Send" style="width: 27px; height: 27px; rotate: 45deg; margin-left: -10px; margin-top: 1px;" />
+      <button type="submit" class="send-btn" aria-label="Send">
+        <img src="{% static 'icons/paper.png' %}" alt="" />
       </button>
     </form>
   </div>
@@ -68,11 +68,8 @@
     // parsed as HTML. Do not switch this back to innerHTML: message text is
     // attacker-controlled and would execute in the recipient's browser.
     function appendMessage(text, time, side) {
-      const prevLast = messageList.querySelector('.last-msg');
-      if (prevLast) prevLast.classList.remove('last-msg');
-
       const msgDiv = document.createElement('div');
-      msgDiv.className = 'message ' + side + ' last-msg';
+      msgDiv.className = 'message ' + side;
 
       const bodyDiv = document.createElement('div');
       bodyDiv.textContent = text;

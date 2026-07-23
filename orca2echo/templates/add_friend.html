@@ -17,7 +17,7 @@ Add Friend | Orca
     </div>
     <div class="form_section">
         <div class="form_container">
-            <h1 class="form_header">Add Friend</h1><br />
+            <h1 class="form_header">Add Friend</h1>
             <form id="add-friend-form">
                 {# {% csrf_token %} #}
                 <div class="form_group">
@@ -27,7 +27,6 @@ Add Friend | Orca
                     <span class="icon"><i class="fa-solid fa-file-signature"></i></span>
                 </div>
 
-                <br />
                 <div class="form_group">
                     <label for="id_number">Enter ID number</label>
                     <input type="text" id="id_number" name="id_number"
@@ -39,7 +38,6 @@ Add Friend | Orca
                 <p class="error">{{ error }}</p>
                 {% endif %}
                 <div class="form_group">
-                    <br />
                     <button type="submit" class="submit_button" id="submit-button">Search</button>
                 </div>
             </form>

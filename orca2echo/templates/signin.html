@@ -1,11 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}
   signin | Orca
-{% endblock %}
-
-{% block css %}
-  {% load static %}
-  <link rel="stylesheet" href="{% static 'css/signin.css' %}" />
 {% endblock %}
 
 {% block body %}
@@ -28,7 +24,6 @@
             <p class="error">{{ error }}</p>
           {% endif %}
           <div class="form_group">
-            <br />
             <button type="submit" class="submit_button" id="submit-button">Next</button>
           </div>
         </form>

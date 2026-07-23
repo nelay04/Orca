@@ -15,10 +15,10 @@ How Orca is put together, and why.
 
 ## Overview
 
-Orca is a mobile-first chat app. A user signs in with a one-time code sent to
-their email, finds other people by scanning a QR code or opening a shared
-profile link, sends a friend request, and once it is accepted the two can
-exchange messages in real time.
+Orca is a mobile-first chat app that also lays out for tablet and desktop. A
+user signs in with a one-time code sent to their email, finds other people by
+scanning a QR code or opening a shared profile link, sends a friend request,
+and once it is accepted the two can exchange messages in real time.
 
 There are two request paths through the application:
 
