@@ -508,6 +508,33 @@ class ProfileQrTests(TestCase):
         self.assertNotIn("..", name)
 
 
+@override_settings(CACHES=LOCMEM_CACHE, STORAGES=TEST_STORAGES)
+class QrImageViewTests(TestCase):
+    """The QR PNG is served straight from disk by views.qr_image, not
+    through django.contrib.staticfiles/WhiteNoise: it is generated at
+    request time, which is after collectstatic and WhiteNoise's static
+    index have already run, so the static pipeline never sees it."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        override = override_settings(BASE_DIR=self._tmp.name)
+        override.enable()
+        self.addCleanup(override.disable)
+        self.user = make_user("alice", "a@example.com", full_name="Alice Ash", short_name="AA", search_id="111")
+
+    def test_serves_png_for_the_logged_in_user(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("qr-image"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/png")
+
+    def test_anonymous_user_is_sent_to_signin(self):
+        response = self.client.get(reverse("qr-image"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("signin", response["Location"])
+
+
 class SignupFormTests(TestCase):
     def valid_data(self, **overrides):
         data = {"full_name": "Snow Flake", "gender": "male", "dob": "2000-01-01"}

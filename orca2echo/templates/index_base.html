@@ -72,7 +72,7 @@
         <div id="qrPopup" class="qr-popup" style="display:none;">
           <div class="qr-popup-content">
             <span class="close" onclick="closeQRPopup()">&times;</span>
-            <img src="{% static 'qr/' %}{{ img_name }}" alt="QR Code" class="qr-image" />
+            <img src="{% url 'qr-image' %}" alt="QR Code" class="qr-image" />
 
             <button id="shareButton" data-share-url="{{ profile_share_url }}">Share Profile Link</button>
           </div>

@@ -298,6 +298,25 @@ def decrypt_message(stored: str) -> str:
         return stored
 
 
+def qr_image_dir():
+    """Directory QR PNGs are read from and written to.
+
+    This lives under the app's static/ tree for historical reasons, but QR
+    images are served directly by views.qr_image, not through
+    django.contrib.staticfiles/WhiteNoise: they are generated on demand at
+    request time, after collectstatic has already run and after WhiteNoise
+    has indexed STATIC_ROOT, so the static pipeline never picks them up.
+    """
+    app_name = os.environ.get("APP_NAME", "orca2echo")
+    return os.path.join(settings.BASE_DIR, app_name, "static", "qr")
+
+
+def qr_image_path(img_name):
+    """Full on-disk path for a QR image filename previously returned by
+    generate_profile_qr."""
+    return os.path.join(qr_image_dir(), img_name)
+
+
 def generate_profile_qr(user_name, short_name, search_id):
     """
     Generate (or reuse) the QR code image for a user's profile link.
@@ -321,12 +340,11 @@ def generate_profile_qr(user_name, short_name, search_id):
 
     img_name = f"qr_{safe_user_name}.png"
 
-    app_name = os.environ.get("APP_NAME", "orca2echo")
-    qr_dir = os.path.join(settings.BASE_DIR, app_name, "static", "qr")
-    qr_image_path = os.path.join(qr_dir, img_name)
+    qr_dir = qr_image_dir()
+    image_path = qr_image_path(img_name)
     # Ensure the directory exists before checking for the file or saving
     os.makedirs(qr_dir, exist_ok=True)
-    if os.path.exists(qr_image_path):
+    if os.path.exists(image_path):
         return img_name
 
     enc_short_name = encrypt_token(short_name)
@@ -346,7 +364,7 @@ def generate_profile_qr(user_name, short_name, search_id):
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
 
-    img.save(qr_image_path)
+    img.save(image_path)
 
     return img_name
 

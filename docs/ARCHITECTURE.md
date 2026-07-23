@@ -280,5 +280,11 @@ docs/                       This documentation
   `services/model_service.py`
 - Chat: `templates/chat.html` (client), `consumers.py` (server)
 - Profile links and QR: `services/auth_service.py::get_profile_share_context`
+  generates the PNG, `views.py::qr_image` serves it. The image is served by
+  that view directly from disk rather than through
+  `django.contrib.staticfiles`/WhiteNoise: it is generated on demand at
+  request time, which is after `collectstatic` has run and after WhiteNoise
+  has already indexed `STATIC_ROOT` for the process lifetime, so a
+  freshly-generated PNG would otherwise 404 until the next deploy.
 - Friend requests: `views.py::add_friend`, `views.py::response`
 - Queries: `services/data_service.py`, `models.py`

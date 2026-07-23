@@ -1,6 +1,7 @@
 # Standard Library Imports
 import json
 import logging
+import os
 
 # Third-Party Library Imports
 from django.contrib.auth import authenticate, login, logout  # type: ignore
@@ -9,7 +10,12 @@ from django.contrib.auth.models import User  # type: ignore
 from django.core.cache import cache  # type: ignore
 from django.db import transaction  # type: ignore
 from django.db.models import F  # type: ignore
-from django.http import HttpResponse, HttpResponseBadRequest  # type: ignore
+from django.http import (  # type: ignore
+    FileResponse,
+    Http404,
+    HttpResponse,
+    HttpResponseBadRequest,
+)
 from django.shortcuts import redirect, render  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
@@ -33,6 +39,7 @@ from .services.auth_service import (
     get_oops_img_text,
     get_profile_share_context,
     normalize_full_name,
+    qr_image_path,
     send_otp,
 )
 from .services.data_service import (
@@ -398,6 +405,24 @@ def signup(request):
         return redirect("orca")  # Redirect to the home page
     else:
         return redirect("signin")
+
+
+@login_required(login_url="signin")
+def qr_image(request):
+    # Served from disk directly rather than through django.contrib.staticfiles
+    # / WhiteNoise: the PNG is generated on demand at request time, which is
+    # after collectstatic has run and after WhiteNoise has already indexed
+    # STATIC_ROOT, so the static pipeline never sees it in production.
+    share_context = get_profile_share_context(request.user.username, request)
+    img_name = share_context.get("img_name")
+    if not img_name:
+        raise Http404
+
+    image_path = qr_image_path(img_name)
+    if not os.path.exists(image_path):
+        raise Http404
+
+    return FileResponse(open(image_path, "rb"), content_type="image/png")
 
 
 @login_required(login_url="signin")
