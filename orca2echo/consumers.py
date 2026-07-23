@@ -20,6 +20,7 @@ def save_message(sender, receiver_username, message_text):
     """
     from .models import Message
     from .services.data_service import find_friendship
+    from .services.auth_service import encrypt_message
 
     receiver = User.objects.filter(username=receiver_username).first()
     if receiver is None:
@@ -31,11 +32,13 @@ def save_message(sender, receiver_username, message_text):
 
     # created_at is set by the database. It used to arrive in the frame, so a
     # skewed clock or a crafted frame could reorder another user's history.
+    # The body is encrypted at rest; the live relay still forwards the plaintext
+    # already held in memory over the TLS-protected socket.
     return Message.objects.create(
         friendship=friendship,
         sender=sender,
         receiver=receiver,
-        message=message_text,
+        message=encrypt_message(message_text),
     )
 
 

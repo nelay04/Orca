@@ -266,6 +266,38 @@ def encrypt_token(original_value: str) -> str | None:
         return None
 
 
+def encrypt_message(plaintext: str) -> str:
+    """Encrypt a chat message for storage at rest.
+
+    Uses the same Fernet as the tokens, so a stolen database holds only
+    ciphertext. This is encryption at rest, not end to end: the server holds
+    the key and can decrypt. An empty body is stored as-is.
+
+    Note: because the message body is encrypted with the token key, rotating
+    FERNET_KEY makes stored history unreadable. See docs/DEVELOPMENT.md.
+    """
+    if not plaintext:
+        return plaintext
+    f = get_fernet()
+    return f.encrypt(plaintext.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_message(stored: str) -> str:
+    """Decrypt a stored chat message.
+
+    Returns the value unchanged if it is empty or cannot be decrypted, so a
+    display path never raises on an unexpected value.
+    """
+    if not stored:
+        return stored
+    try:
+        f = get_fernet()
+        return f.decrypt(stored.encode("utf-8")).decode("utf-8")
+    except Exception:
+        logger.exception("Message decryption failed")
+        return stored
+
+
 def generate_profile_qr(user_name, short_name, search_id):
     """
     Generate (or reuse) the QR code image for a user's profile link.
