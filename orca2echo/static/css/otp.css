@@ -15,8 +15,8 @@
 .otp_input_container .otp_input {
     flex: 1 1 0;
     min-width: 0;
-    max-width: 3.25rem;
-    height: 3.25rem;
+    max-width: 2.9rem;
+    height: 2.9rem;
     margin-top: 0;
     padding: 0;
     text-align: center;

@@ -34,7 +34,7 @@
     --about-box-bg: rgb(248, 249, 250);
 
     /* Layout */
-    --sidebar-width: 300px;
+    --sidebar-width: 340px;
     --content-max: 46rem;
 }
 
@@ -299,7 +299,7 @@ body {
 }
 
 
-label[for=btn] {
+.switch {
     position: absolute;
     width: calc(var(--sz) * 4);
     height: calc(var(--sz) * 2);
@@ -334,7 +334,7 @@ label[for=btn] {
 }
 
 
-#btn:checked + label .thumb {
+#btn:checked + .switch .thumb {
     --lg: var(--on);
     transition: var(--tr);
     top: calc(calc(var(--sz) / -20)); /* Subtle upward shift */
@@ -388,7 +388,7 @@ label[for=btn] {
         0 0 calc(var(--sz) / 3) calc(var(--sz) / 20) #003ef520 inset;
 }
 
-#btn:checked+label+.light:before {
+#btn:checked+.switch+.light:before {
     --lg: var(--on);
     transition: var(--tr);
     box-shadow:
@@ -420,10 +420,12 @@ label[for=btn] {
 }
 
 .qr-popup-content {
-    background: #fff;
+    background: var(--bg-color);
+    color: var(--text-color);
     padding: 2rem 1.5rem 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2);
+    border-radius: 0 15px 0 15px;
+    border: 1px solid var(--nav-ul-color);
+    box-shadow: 0 8px 30px var(--card-box-shadow);
     position: relative;
     text-align: center;
     width: 100%;
@@ -440,7 +442,7 @@ label[for=btn] {
     right: 14px;
     font-size: 28px;
     line-height: 1;
-    color: rgb(51, 51, 51);
+    color: var(--text-color);
     cursor: pointer;
 }
 
@@ -448,6 +450,10 @@ label[for=btn] {
     width: 100%;
     max-width: 220px;
     height: auto;
+    padding: 12px;
+    /* The code needs a light quiet zone to stay scannable on a dark modal. */
+    background: #fff;
+    border-radius: 10px;
 }
 
 #shareButton {
@@ -455,16 +461,16 @@ label[for=btn] {
     padding: 0.75rem 1rem;
     border: none;
     border-radius: 8px;
-    background-color: rgba(147, 137, 230, 1);
+    background-color: var(--nav-p-color);
     color: rgb(255, 255, 255);
     font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: filter 0.2s ease;
 }
 
 #shareButton:hover {
-    background-color: rgba(129, 121, 250, 1);
+    filter: brightness(1.1);
 }
 
 /* Profile cards, shared by friends, friend requests, sent requests and the
@@ -492,8 +498,8 @@ label[for=btn] {
 }
 
 .card_img {
-    width: 100px;
-    height: 100px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
     object-fit: cover;
 }
@@ -677,6 +683,10 @@ label[for=btn] {
     .navbar,
     .page {
         margin-left: var(--sidebar-width);
+        /* The rail is fixed, so the flow content must give up its width or the
+           inherited width: 100% plus this margin overflows the viewport by the
+           rail width and forces a horizontal scrollbar. */
+        width: calc(100% - var(--sidebar-width));
     }
 
     /* The menu button and its scrim have nothing left to do. */

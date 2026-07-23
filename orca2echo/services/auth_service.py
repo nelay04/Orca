@@ -113,8 +113,8 @@ def send_otp(otp, email, name):
         "otp": otp,
         "brand_name": "Orca",
         "dated": get_current_time_ist(),
-        "address_line1": "123 Elf Road, 88888",
-        "address_line2": "North Pole",
+        "address_line1": "Sector V, Salt Lake City",
+        "address_line2": "Kolkata, WB",
     }
 
     # Render the HTML template

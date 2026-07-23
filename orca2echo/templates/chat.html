@@ -23,7 +23,7 @@
         {% else %}
           left
         {% endif %}">
-          <div>{{ msg.message }}</div>
+          <div class="message-text">{{ msg.message }}</div>
           <div class="timestamp {% if msg.is_sender %}
             right_time
           {% else %}
@@ -36,7 +36,7 @@
   </div>
   <div class="compose-form-container">
     <form id="composeForm" class="compose-form">
-      <input type="text" id="composeInput" name="message" placeholder="Compose message..." autocomplete="off" required />
+      <textarea id="composeInput" name="message" placeholder="Compose message..." autocomplete="off" rows="1" required></textarea>
       <input type="hidden" id="friendId" name="friend_id" value="{{ friend_id }}" />
       {# The friendship's public_id, from the direct_message view context #}
       <input type="hidden" id="conversationId" value="{{ conversation_id }}" />
@@ -56,6 +56,26 @@
     // Make sure request.user.username is available in the template context for this script
     const currentUsername = "{{ request.user.username }}";
 
+    // Grow the textarea with its content up to the CSS max-height, then reset
+    // it to a single row once the message has been sent.
+    const composeBaseHeight = composeInput.style.height;
+    function autoResizeCompose() {
+      composeInput.style.height = 'auto';
+      composeInput.style.height = Math.min(composeInput.scrollHeight, 128) + 'px';
+    }
+    function resetComposeHeight() {
+      composeInput.style.height = composeBaseHeight;
+    }
+    composeInput.addEventListener('input', autoResizeCompose);
+
+    // Enter sends; Shift+Enter inserts a newline for a longer message.
+    composeInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        composeForm.requestSubmit();
+      }
+    });
+
     function scrollToLastMessage() {
       if (scrollAnchor) {
         // Using 'auto' or 'instant' for behavior during rapid message arrival might feel smoother
@@ -72,6 +92,7 @@
       msgDiv.className = 'message ' + side;
 
       const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'message-text';
       bodyDiv.textContent = text;
 
       const timeDiv = document.createElement('div');
@@ -165,6 +186,7 @@
       const msgDiv = appendMessage(message, provisionalTime, 'right');
       const originalMessageValue = composeInput.value; // Save for potential revert
       composeInput.value = ''; // Clear input
+      resetComposeHeight(); // Shrink back to a single row
 
       // Send message via WebSocket
       if (chatSocket.readyState === WebSocket.OPEN) {
@@ -179,6 +201,7 @@
         // Revert optimistic UI update
         msgDiv.remove();
         composeInput.value = originalMessageValue; // Restore typed message
+        autoResizeCompose();
       }
     });
   </script>

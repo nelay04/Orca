@@ -1,6 +1,11 @@
 /* Incoming friend requests. Shared card styles come from index_base.css.
    The decline and accept colours are set inline on the buttons. */
 
+/* Slimmer, portrait (roughly 3:4) profile cards than the shared default. */
+.card_container {
+    grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 16rem));
+}
+
 .response_buttons .submit_button {
     font-size: 1rem;
 }

@@ -1,179 +1,120 @@
-/* Friend search form. Shell styles come from index_base.css. */
+/* Friend search form. Shell styles come from index_base.css. A compact,
+   centred card on the app background, using the shared theme tokens so it
+   matches the rest of the signed-in app. No gradients. */
 
 .container {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(135deg, rgb(201, 197, 241) 0%, rgb(146, 137, 214) 100%);
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: clamp(1.5rem, 5vh, 3rem) clamp(1rem, 5vw, 2rem);
+    background-color: var(--bg-color);
+    color: var(--text-color);
     user-select: none;
 }
 
 .logo_section {
-    padding: clamp(1.75rem, 5vh, 3.5rem) clamp(1.5rem, 8vw, 3rem) clamp(1.25rem, 3vh, 2rem);
+    text-align: center;
 }
 
 .logo_section h1 {
-    font-weight: 500;
-    font-size: clamp(2.75rem, 11vw, 4.5rem);
-    line-height: 1.05;
-    color: rgb(255, 255, 255);
-    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+    font-weight: 600;
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    line-height: 1.1;
+    color: var(--nav-p-color);
 }
 
 .logo_section h2 {
-    padding-left: 0.5rem;
+    margin-top: 0.25rem;
     font-weight: 400;
-    font-size: clamp(1rem, 3.5vw, 1.2rem);
-    color: rgb(255, 255, 255);
-    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+    font-size: clamp(0.9rem, 2.5vw, 1.05rem);
+    color: var(--text-color);
+    opacity: 0.7;
 }
 
 .form_section {
-    flex: 1;
-    padding: clamp(1.75rem, 5vh, 3rem) 0 clamp(2rem, 5vh, 3rem);
-    background-color: rgba(0, 0, 0, 0.55);
-    border-radius: 30px 30px 0 0;
+    width: 100%;
+    max-width: 24rem;
+    padding: clamp(1.5rem, 4vw, 2rem);
+    background-color: var(--card-bg-color);
+    border: 1px solid var(--nav-ul-color);
+    border-radius: 0 15px 0 15px;
+    box-shadow: var(--card-box-shadow) 0px 3px 8px;
 }
 
 .form_container {
     width: 100%;
-    max-width: 30rem;
-    margin: 0 auto;
-    padding: 0 clamp(1.5rem, 8vw, 3rem);
 }
 
 .form_header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
     font-weight: 500;
-    font-size: clamp(1.9rem, 7vw, 2.5rem);
-    color: rgb(255, 255, 255);
+    font-size: 1.5rem;
+    color: var(--text-color);
 }
 
 .form_group {
     position: relative;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
 }
 
 .form_group label {
     display: block;
     font-weight: 400;
-    font-size: clamp(1.05rem, 4vw, 1.2rem);
-    color: rgb(255, 255, 255);
+    font-size: 0.95rem;
+    color: var(--text-color);
+    opacity: 0.85;
 }
 
 .form_group input {
     width: 100%;
-    height: 3rem;
-    margin-top: 0.5rem;
-    padding: 0 2.75rem 0 0.5rem;
+    height: 2.75rem;
+    margin-top: 0.4rem;
+    padding: 0 2.5rem 0 0.5rem;
     background-color: transparent;
     border: none;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.7);
+    border-bottom: 2px solid var(--underscore-color);
     border-radius: 4px 4px 0 0;
     outline: none;
-    font-size: 1.1rem;
-    font-weight: 300;
-    letter-spacing: 0.06em;
-    color: rgb(255, 255, 255);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    color: var(--text-color);
+    transition: border-color 0.2s ease;
 }
 
 .form_group input:focus {
-    background: rgba(0, 0, 0, 0.25);
-    border-bottom-color: rgb(255, 255, 255);
+    border-bottom-color: var(--nav-p-color);
 }
 
 .form_group .icon {
     position: absolute;
-    right: 0.75rem;
-    bottom: 0.8rem;
-    font-size: 1.25rem;
-    color: rgba(255, 255, 255, 0.75);
+    right: 0.5rem;
+    bottom: 0.7rem;
+    font-size: 1.1rem;
+    color: var(--text-color);
+    opacity: 0.5;
     pointer-events: none;
-    transition: color 0.2s ease;
+    transition: color 0.2s ease, opacity 0.2s ease;
 }
 
 .form_group input:focus ~ .icon {
-    color: rgb(255, 255, 255);
+    color: var(--nav-p-color);
+    opacity: 1;
 }
 
 .submit_button {
     margin-top: 0.5rem;
-    height: 3rem;
+    height: 2.75rem;
     border-radius: 8px;
-    background-color: rgba(200, 197, 245, 0.5);
-    font-size: 1.15rem;
-}
-
-.submit_button:hover {
-    background-color: rgba(200, 197, 245, 0.7);
-    filter: none;
-}
-
-.submit_button:active {
-    background-color: rgba(129, 121, 250, 1);
+    background-color: var(--nav-p-color);
+    color: rgb(255, 255, 255);
+    font-size: 1.05rem;
 }
 
 .error {
-    margin: -0.75rem 0 1rem;
-    font-size: 0.95rem;
-    color: rgb(255, 128, 128);
-}
-
-/* Tablet: the panel lifts off the bottom edge and becomes a centred card. */
-@media (min-width: 768px) {
-    .container {
-        justify-content: center;
-        gap: 2rem;
-        padding: clamp(2rem, 6vh, 4rem) 2rem;
-    }
-
-    .logo_section {
-        padding: 0;
-        text-align: center;
-    }
-
-    .logo_section h2 {
-        padding-left: 0;
-    }
-
-    .form_section {
-        flex: 0 0 auto;
-        width: 100%;
-        max-width: 34rem;
-        margin: 0 auto;
-        padding: 2.5rem 0;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 24px;
-        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
-    }
-}
-
-/* Desktop: brand on the left, card on the right. */
-@media (min-width: 1024px) {
-    .container {
-        flex-direction: row;
-        align-items: center;
-        gap: clamp(3rem, 8vw, 7rem);
-        padding: 3rem clamp(2rem, 6vw, 5rem);
-    }
-
-    .logo_section {
-        flex: 1 1 0;
-        max-width: 32rem;
-        text-align: left;
-    }
-
-    .logo_section h1 {
-        font-size: clamp(4rem, 5.5vw, 5.5rem);
-    }
-
-    .logo_section h2 {
-        font-size: 1.35rem;
-    }
-
-    .form_section {
-        flex: 0 1 32rem;
-        margin: 0;
-    }
+    margin: -0.5rem 0 1rem;
+    font-size: 0.9rem;
+    color: var(--danger-color);
 }
