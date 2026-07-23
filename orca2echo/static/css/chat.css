@@ -56,8 +56,13 @@
    on .message itself would also render the template whitespace between the
    body and timestamp, which stretched every bubble vertically. */
 .message-text {
+    display: inline;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    /* Reserve room on the last line so the absolutely positioned timestamp
+       can sit beside the final words (WhatsApp style) instead of on its own
+       row. If the last line is full, the timestamp drops below it. */
+    padding-right: 3.4rem;
 }
 
 .message.left {
@@ -75,9 +80,12 @@
 }
 
 .timestamp {
-    font-size: 12px;
-    margin-top: 4px;
-    text-align: right;
+    position: absolute;
+    right: 12px;
+    bottom: 7px;
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 .right_time {
