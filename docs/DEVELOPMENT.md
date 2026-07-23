@@ -530,6 +530,12 @@ Rotating `SECRET_KEY` signs every user out. Rotating `FERNET_KEY`, or rotating
 `SECRET_KEY` while `FERNET_KEY` is unset, additionally invalidates every profile
 link and QR code ever shared.
 
+The same key also encrypts message bodies at rest. Unlike links, that ciphertext
+is stored, so rotating the key makes existing chat history undecryptable. Before
+rotating in an environment with real conversations, re-encrypt the `Message`
+rows under the new key (or switch to `MultiFernet`, keeping the old key for
+decryption).
+
 When you rotate either, delete the generated QR images:
 
 ```bash

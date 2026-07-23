@@ -18,14 +18,21 @@ from .forms import SignupForm
 from .models import FriendRequest, Friendship, Message, Otp, Profile
 from .services import model_service
 from .services.auth_service import (
+    decrypt_message,
     decrypt_token,
+    encrypt_message,
     encrypt_token,
     generate_otp,
     generate_profile_qr,
     generate_short_name,
     normalize_full_name,
 )
-from .services.data_service import find_friendship, resolve_friendship
+from .services.data_service import (
+    find_friendship,
+    get_messages,
+    list_friends_by_recent_activity,
+    resolve_friendship,
+)
 
 
 def make_user(username, email, full_name="Test User", short_name="TU", search_id=None, **profile_fields):
@@ -390,6 +397,63 @@ class MessageTests(TestCase):
     def test_resolve_friendship_rejects_a_stranger(self):
         stranger = make_user("carol", "c@example.com")
         self.assertIsNone(resolve_friendship(str(self.friendship.public_id), stranger))
+
+
+class MessageEncryptionTests(TestCase):
+    def setUp(self):
+        self.alice = make_user("alice", "a@example.com")
+        self.bob = make_user("bob", "b@example.com")
+        self.friendship = Friendship.objects.create(user_1=self.alice, user_2=self.bob)
+
+    def test_encrypt_decrypt_roundtrip(self):
+        self.assertEqual(decrypt_message(encrypt_message("hello there")), "hello there")
+
+    def test_ciphertext_is_not_the_plaintext(self):
+        self.assertNotEqual(encrypt_message("secret"), "secret")
+
+    def test_empty_body_is_left_untouched(self):
+        self.assertEqual(encrypt_message(""), "")
+        self.assertEqual(decrypt_message(""), "")
+
+    def test_undecryptable_value_is_returned_as_is(self):
+        # A display path must never raise on an unexpected value.
+        self.assertEqual(decrypt_message("not a token"), "not a token")
+
+    def test_get_messages_returns_decrypted_bodies(self):
+        Message.objects.create(
+            friendship=self.friendship, sender=self.alice, receiver=self.bob,
+            message=encrypt_message("ciphered hi"),
+        )
+        [message] = get_messages(self.friendship)
+        self.assertEqual(message.message, "ciphered hi")
+
+    def test_body_is_stored_as_ciphertext(self):
+        Message.objects.create(
+            friendship=self.friendship, sender=self.alice, receiver=self.bob,
+            message=encrypt_message("on disk"),
+        )
+        raw = Message.objects.get().message
+        self.assertNotIn("on disk", raw)
+        self.assertEqual(decrypt_message(raw), "on disk")
+
+    def test_conversation_preview_is_decrypted(self):
+        Message.objects.create(
+            friendship=self.friendship, sender=self.alice, receiver=self.bob,
+            message=encrypt_message("latest note"),
+        )
+        [entry] = list_friends_by_recent_activity(self.bob)
+        self.assertEqual(entry["last_message_text"], "latest note")
+
+    def test_save_message_encrypts_then_reads_back(self):
+        from asgiref.sync import async_to_sync
+
+        from .consumers import save_message
+
+        saved = async_to_sync(save_message)(self.alice, self.bob.username, "via consumer")
+        self.assertIsNotNone(saved)
+        self.assertNotIn("via consumer", saved.message)
+        [message] = get_messages(self.friendship)
+        self.assertEqual(message.message, "via consumer")
 
 
 class TokenTests(TestCase):

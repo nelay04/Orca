@@ -117,7 +117,10 @@ def list_friends_by_recent_activity(user: User) -> List[dict]:
     that nothing ever wrote to.
     """
     # Subqueries rather than a follow-up query per friendship: the whole chat
-    # list, preview text included, is one round trip.
+    # list, preview text included, is one round trip. The preview text comes
+    # back encrypted and is decrypted per entry below.
+    from .auth_service import decrypt_message
+
     latest = Message.objects.filter(friendship=OuterRef("pk"), is_active=True).order_by("-created_at")
     friendships = _friendships_for(user).annotate(
         last_message_at=Subquery(latest.values("created_at")[:1]),
@@ -135,7 +138,7 @@ def list_friends_by_recent_activity(user: User) -> List[dict]:
                 "friendship": friendship,
                 "friend": friend,
                 "profile": getattr(friend, "profile", None),
-                "last_message_text": friendship.last_message_text,
+                "last_message_text": decrypt_message(friendship.last_message_text),
                 "last_message_is_mine": friendship.last_message_sender == user.id,
                 "last_message_at": friendship.last_message_at or friendship.created_at,
             }
@@ -165,5 +168,12 @@ def list_friends_alphabetically(user: User) -> List[dict]:
 
 
 def get_messages(friendship: Friendship) -> List[Message]:
-    """Every active message in a conversation, oldest first."""
-    return list(friendship.messages.filter(is_active=True).select_related("sender"))
+    """Every active message in a conversation, oldest first, decrypted."""
+    from .auth_service import decrypt_message
+
+    messages = list(friendship.messages.filter(is_active=True).select_related("sender"))
+    for message in messages:
+        # Bodies are stored encrypted; decrypt in memory only for display.
+        # These objects are never re-saved, so the ciphertext stays in the DB.
+        message.message = decrypt_message(message.message)
+    return messages

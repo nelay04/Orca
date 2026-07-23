@@ -95,7 +95,7 @@ of them is registered in the admin.
 | `Profile` | `user` (one-to-one), `full_name`, `short_name`, `search_id`, `gender`, `dob`, `about`, `profile_picture`, `qr_code`, `is_new_user` | Everything about a user beyond their auth row. `search_id` is unique; `(short_name, search_id)` is indexed for the share-link lookup. The picture is a base64 string stored inline. |
 | `FriendRequest` | `sender`, `receiver`, `is_active`, `is_accepted`, `is_declined`, `is_cancelled`, counters | One row per direction, unique on the pair. |
 | `Friendship` | `public_id`, `user_1`, `user_2` | Created once a request is accepted. Also the conversation. |
-| `Message` | `friendship`, `sender`, `receiver`, `message`, `created_at` | One row per message, indexed on `(friendship, created_at)` and ordered by `created_at`. |
+| `Message` | `friendship`, `sender`, `receiver`, `message`, `created_at` | One row per message, indexed on `(friendship, created_at)` and ordered by `created_at`. `message` is stored Fernet-encrypted (at rest) and decrypted on read. |
 
 There is no separate email or username column on `Profile`: `user.email` and
 `user.username` are the only copy of each.
@@ -219,6 +219,7 @@ somehow learned. Checking membership at connect time is the fix.
 | Session | Standard Django sessions. `HttpOnly` always; `Secure` when `DEBUG=False`. |
 | Chat authorization | Membership is resolved from `Friendship` in the database. The URL token is not treated as proof of access. |
 | Link tampering | Profile and conversation ids travel as Fernet tokens (AES-CBC + HMAC), so they cannot be forged or enumerated. |
+| Message storage | Bodies are encrypted at rest with the same Fernet before being written, so a stolen database holds only ciphertext. This is encryption at rest, not end to end: the server holds the key and decrypts on read for display. |
 | XSS | Django autoescaping for server-rendered history; the WebSocket client builds nodes with `textContent`, never `innerHTML`. |
 | CSRF | Django middleware. `CSRF_TRUSTED_ORIGINS` comes from `APP_URL`. |
 | Host header | `ALLOWED_HOSTS` from the environment, never `*`. |
@@ -234,6 +235,12 @@ invalidate every profile link that has ever been shared.
 
 Fernet output is deliberately non-deterministic. Nothing may cache on it; the
 QR filename cache is keyed on `user_name` for exactly this reason.
+
+Message bodies are encrypted with the same key via `encrypt_message` /
+`decrypt_message`. Unlike the ephemeral URL tokens, this ciphertext is stored,
+so rotating the key makes existing history unreadable. If you must rotate,
+re-encrypt the `Message` rows under the new key, or move to `MultiFernet` with
+the old key retained for decryption.
 
 ---
 
