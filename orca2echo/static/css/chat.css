@@ -8,12 +8,15 @@
     /* A single, more saturated accent for the interactive chat controls, so
        the send button and input focus read as one deliberate colour. */
     --send-accent: #6f5fe0;
+    /* The highlight ribbon behind a selected message. */
+    --ribbon-color: rgba(111, 95, 224, 0.14);
 }
 
 [data-theme="dark"] {
     --chat-container-bg: #112233;
     --message-right-bg-color: #071521;
     --message-left-bg-color: #1b3b57;
+    --ribbon-color: rgba(147, 137, 230, 0.20);
 }
 
 /* Incoming bubbles use dark text on their light bubble in light mode; in dark
@@ -26,13 +29,16 @@
     color: rgb(170, 186, 202);
 }
 
-/* The surface is full bleed, the message column inside it is centred. */
+/* The surface is full bleed, the message column inside it is centred.
+   overflow-x is clipped so a selected message's full-width ribbon cannot
+   spill sideways into a horizontal scrollbar. */
 .chat-container {
     flex: 1;
     width: 100%;
     padding: clamp(0.85rem, 3vw, 1.25rem);
     padding-bottom: calc(var(--compose-height) + 1rem);
     background: var(--chat-container-bg);
+    overflow-x: clip;
 }
 
 .message-list {
@@ -50,6 +56,30 @@
     line-height: 1.35;
     position: relative;
     overflow-wrap: anywhere;
+    transition: transform 0.18s ease;
+}
+
+/* The message being acted on: lifted above the dim backdrop, nudged left, and
+   backed by a horizontal ribbon spanning the row so it is unmistakably the one
+   the menu and confirmation apply to. */
+.message.selected {
+    z-index: 205;
+    transform: translateX(-1rem);
+}
+
+.message.selected::before {
+    content: "";
+    position: absolute;
+    /* Extend halfway into the 12px gap above and below, so the ribbon meets the
+       midpoint between this bubble and its neighbours rather than hugging it. */
+    top: -6px;
+    bottom: -6px;
+    /* Reaches past the bubble on both sides; the container clips the overflow. */
+    left: -100vw;
+    right: -100vw;
+    z-index: -1;
+    background: var(--ribbon-color);
+    pointer-events: none;
 }
 
 /* Only the text body preserves manual line breaks (Shift+Enter). Putting this
@@ -63,6 +93,22 @@
        can sit beside the final words (WhatsApp style) instead of on its own
        row. If the last line is full, the timestamp drops below it. */
     padding-right: 3.4rem;
+}
+
+/* A trashed message keeps its bubble and position but reads as a muted,
+   italic tombstone rather than a body. */
+.message-text.trashed {
+    font-style: italic;
+    font-weight: 300;
+    opacity: 0.7;
+}
+
+/* Own messages open the actions menu on long-press, so suppress the native
+   iOS callout and text selection that a long-press would otherwise trigger. */
+.message.right {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .message.left {
@@ -158,7 +204,6 @@
     border: none;
     border-radius: 50%;
     background: var(--send-accent);
-    box-shadow: 0 2px 8px rgba(111, 95, 224, 0.4);
     cursor: pointer;
     transition: filter 0.2s ease, transform 0.1s ease;
 }
@@ -174,6 +219,7 @@
 .send-btn img {
     width: 22px;
     height: 22px;
+    margin-left: -5px;
     transform: rotate(45deg);
 }
 
@@ -182,4 +228,163 @@
     .compose-form-container {
         left: var(--sidebar-width);
     }
+}
+
+/* --- Actions menu (right-click / long-press) --- */
+/* Three stacked layers: an invisible full-screen backdrop that only catches a
+   tap to dismiss (the screen is not dimmed), the selected bubble lifted just
+   above it with its ribbon (see .message.selected), and the centred menu card
+   above the bubble. */
+.menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: transparent;
+}
+
+.menu-backdrop[hidden] {
+    display: none;
+}
+
+/* The centred menu layer is above the lifted bubble. It does not dim on its
+   own (the backdrop does), and it lets pointer events fall through to the
+   backdrop except on the card itself, so a tap beside the card still dismisses. */
+.menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 210;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    pointer-events: none;
+}
+
+.menu-overlay[hidden] {
+    display: none;
+}
+
+.context-menu {
+    width: 100%;
+    max-width: 16rem;
+    padding: 0.4rem;
+    background: var(--nav-bg-color);
+    border: 1px solid var(--nav-ul-color);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    user-select: none;
+}
+
+.context-menu-header {
+    padding: 0.35rem 0.6rem 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--menu-header-color);
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.6rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 0.95rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
+    background: var(--link-hover-color);
+    outline: none;
+}
+
+.context-menu-item svg {
+    flex-shrink: 0;
+}
+
+.context-menu-item.danger {
+    color: var(--danger-color);
+}
+
+/* --- Trash confirmation dialog --- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: var(--overlay-color);
+}
+
+.modal-overlay[hidden] {
+    display: none;
+}
+
+.modal-dialog {
+    width: 100%;
+    max-width: 22rem;
+    padding: 1.5rem;
+    background: var(--nav-bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--nav-ul-color);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.modal-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.modal-text {
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: var(--menu-header-color);
+    margin-bottom: 1.35rem;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.modal-btn {
+    padding: 0.55rem 1.1rem;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: filter 0.15s ease, background-color 0.15s ease;
+}
+
+.modal-btn-cancel {
+    background: var(--link-hover-color);
+    color: var(--text-color);
+}
+
+.modal-btn-cancel:hover {
+    filter: brightness(0.95);
+}
+
+.modal-btn-danger {
+    background: var(--danger-color);
+    color: #fff;
+}
+
+.modal-btn-danger:hover {
+    filter: brightness(1.08);
 }

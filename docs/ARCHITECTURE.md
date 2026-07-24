@@ -95,7 +95,7 @@ of them is registered in the admin.
 | `Profile` | `user` (one-to-one), `full_name`, `short_name`, `search_id`, `gender`, `dob`, `about`, `profile_picture`, `qr_code`, `is_new_user` | Everything about a user beyond their auth row. `search_id` is unique; `(short_name, search_id)` is indexed for the share-link lookup. The picture is a base64 string stored inline. |
 | `FriendRequest` | `sender`, `receiver`, `is_active`, `is_accepted`, `is_declined`, `is_cancelled`, counters | One row per direction, unique on the pair. |
 | `Friendship` | `public_id`, `user_1`, `user_2` | Created once a request is accepted. Also the conversation. |
-| `Message` | `friendship`, `sender`, `receiver`, `message`, `created_at` | One row per message, indexed on `(friendship, created_at)` and ordered by `created_at`. `message` is stored Fernet-encrypted (at rest) and decrypted on read. |
+| `Message` | `public_id`, `friendship`, `sender`, `receiver`, `message`, `is_active`, `created_at` | One row per message, indexed on `(friendship, created_at)` and ordered by `created_at`. `message` is stored Fernet-encrypted (at rest) and decrypted on read. `public_id` is a random UUID the client uses to name a message, so no sequential id leaves the server. Trashing sets `is_active` to false rather than deleting the row, so history keeps the message's position and renders a tombstone. |
 
 There is no separate email or username column on `Profile`: `user.email` and
 `user.username` are the only copy of each.
@@ -196,6 +196,15 @@ The client opens `ws://<host>/ws/chat/<friendship public_id>/`.
 
 Blocking database work is wrapped in `sync_to_async` so the event loop is not
 stalled.
+
+A trash frame (`{"action": "trash", "message_id": <public_id>}`) soft-deletes a
+message. The consumer re-resolves the friendship from the connection's
+`public_id`, then only trashes a message the sender owns within that
+friendship: membership is not permission to trash the other participant's
+message, and the message is referenced by its own `public_id`, never a
+sequential id. The row's `is_active` is flipped rather than deleted, and a
+`{"action": "trashed", ...}` broadcast turns the bubble into a tombstone on both
+ends. Trashing is one-way; there is no untrash.
 
 The sender's own message is rendered optimistically in the browser with a
 provisional local time. When the echo of that message arrives, the client

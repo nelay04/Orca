@@ -168,12 +168,49 @@ def list_friends_alphabetically(user: User) -> List[dict]:
 
 
 def get_messages(friendship: Friendship) -> List[Message]:
-    """Every active message in a conversation, oldest first, decrypted."""
+    """Every message in a conversation, oldest first.
+
+    Trashed messages are kept in the list so history renders a tombstone in
+    their place instead of collapsing the surrounding order. Only live bodies
+    are decrypted; a trashed body is cleared and never handed to the template.
+    """
     from .auth_service import decrypt_message
 
-    messages = list(friendship.messages.filter(is_active=True).select_related("sender"))
+    messages = list(friendship.messages.select_related("sender"))
     for message in messages:
-        # Bodies are stored encrypted; decrypt in memory only for display.
-        # These objects are never re-saved, so the ciphertext stays in the DB.
-        message.message = decrypt_message(message.message)
+        if message.is_active:
+            # Bodies are stored encrypted; decrypt in memory only for display.
+            # These objects are never re-saved, so the ciphertext stays in the DB.
+            message.message = decrypt_message(message.message)
+        else:
+            message.message = ""
     return messages
+
+
+def trash_message(friendship: Friendship, user: User, public_id: str) -> Optional[Message]:
+    """Soft-delete one of the user's own messages, or return None.
+
+    The trash is scoped to a friendship the caller belongs to and to a message
+    the caller sent: a member cannot trash the other participant's messages,
+    and a valid conversation token is not on its own a claim to any message.
+    The row survives; only is_active is flipped, so nothing is ever hard
+    deleted and history keeps the message's position.
+    """
+    if not public_id:
+        return None
+    try:
+        message = (
+            friendship.messages.filter(public_id=public_id, sender=user, is_active=True)
+            .select_related("sender")
+            .first()
+        )
+    except (ValidationError, ValueError, TypeError):
+        # Not a UUID. A tampered or stale reference, not an error worth raising.
+        return None
+
+    if message is None:
+        return None
+
+    message.is_active = False
+    message.save(update_fields=["is_active"])
+    return message

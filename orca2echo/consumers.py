@@ -42,6 +42,24 @@ def save_message(sender, receiver_username, message_text):
     )
 
 
+@sync_to_async
+def trash_message(user, conversation_id, message_public_id):
+    """Soft-delete the user's own message, or return None when not permitted.
+
+    Membership is resolved from the database on every frame, exactly as for a
+    write: holding the conversation token is not membership, and being a member
+    is not permission to trash the other participant's message.
+    """
+    from .services.data_service import resolve_friendship, trash_message as trash
+
+    resolved = resolve_friendship(conversation_id, user)
+    if resolved is None:
+        return None
+
+    friendship, _ = resolved
+    return trash(friendship, user, message_public_id)
+
+
 def format_display_time(moment):
     """The h:mm am/pm label shown next to a bubble, in the project timezone."""
     local = timezone.localtime(moment)
@@ -81,6 +99,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Receive message from WebSocket
     async def receive(self, text_data):
         data = json.loads(text_data)
+
+        # A trash frame carries an action and the target message's public_id
+        # instead of a body; a send frame carries the body and the recipient.
+        if data.get('action') == 'trash':
+            await self.trash(data)
+            return
+
         message = data.get('message')
         friend_id = data.get('friend_id')  # This is the receiver's username
 
@@ -108,8 +133,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'type': 'chat_message',  # This will call the chat_message method below
                 'message': message,
                 'sender_username': sender_username,
+                # The message's public_id, so the sender's optimistic bubble can
+                # be tagged and later trashed, and history references stay stable.
+                'message_id': str(saved.public_id),
                 # Server-generated, so both participants see the same time.
                 'formatted_time': format_display_time(saved.created_at),
+            }
+        )
+
+    async def trash(self, data):
+        """Handle a trash frame: soft-delete, then broadcast the tombstone."""
+        message_id = data.get('message_id')
+        if not message_id:
+            return
+
+        trashed = await trash_message(self.user, self.conversation_id, message_id)
+        if trashed is None:
+            logger.error(f"Refused trash from {self.user.username} for message {message_id}")
+            await self.send(text_data=json.dumps({
+                'error': 'Message could not be trashed.'
+            }))
+            return
+
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'message_trashed',  # Calls message_trashed below.
+                'message_id': str(trashed.public_id),
+                'sender_username': self.user.username,
             }
         )
 
@@ -119,5 +170,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'message': event['message'],
             'sender_username': event['sender_username'],
+            'message_id': event['message_id'],
             'formatted_time': event['formatted_time'],
+        }))
+
+    # Relay a trash to this client so its copy of the message becomes a tombstone.
+    async def message_trashed(self, event):
+        await self.send(text_data=json.dumps({
+            'action': 'trashed',
+            'message_id': event['message_id'],
+            'sender_username': event['sender_username'],
         }))

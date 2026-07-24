@@ -22,8 +22,13 @@
           right
         {% else %}
           left
-        {% endif %}">
-          <div class="message-text">{{ msg.message }}</div>
+        {% endif %}" data-message-id="{{ msg.public_id }}">
+          {% if msg.is_active %}
+            <div class="message-text">{{ msg.message }}</div>
+          {% else %}
+            {# One line: message-text is pre-wrap, so indentation would render as literal whitespace and inflate the bubble. #}
+            <div class="message-text trashed">{% if msg.is_sender %}You trashed this message{% else %}{{ first_name }} trashed this message{% endif %}</div>
+          {% endif %}
           <div class="timestamp {% if msg.is_sender %}
             right_time
           {% else %}
@@ -45,6 +50,40 @@
       </button>
     </form>
   </div>
+
+  {# Dim backdrop for the actions menu. A separate layer from the centred menu so the selected message can be lifted between the two (dimmed screen, bright bubble, menu on top). #}
+  <div class="menu-backdrop" id="menuBackdrop" hidden></div>
+  {# Actions menu, opened by right-click or long-press on an own message. Trash is live; Edit is a placeholder. #}
+  <div class="menu-overlay" id="messageMenu" aria-hidden="true" hidden>
+    <div class="context-menu" role="menu">
+      <div class="context-menu-header">Actions</div>
+      <button type="button" class="context-menu-item" data-action="edit" role="menuitem">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z" />
+        </svg>
+        <span>Edit</span>
+      </button>
+      <button type="button" class="context-menu-item danger" data-action="trash" role="menuitem">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M9 3a1 1 0 0 0-1 1v1H4v2h1v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7h1V5h-4V4a1 1 0 0 0-1-1H9Zm0 4h2v10H9V7Zm4 0h2v10h-2V7Z" />
+        </svg>
+        <span>Trash</span>
+      </button>
+    </div>
+  </div>
+
+  {# Confirmation dialog for a trash. Styled from the app's theme tokens so it matches light and dark. #}
+  <div class="modal-overlay" id="trashModal" aria-hidden="true" hidden>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="trashModalTitle" aria-describedby="trashModalText">
+      <h3 class="modal-title" id="trashModalTitle">Trash this message?</h3>
+      <p class="modal-text" id="trashModalText">It will be removed for everyone in this conversation. This cannot be undone.</p>
+      <div class="modal-actions">
+        <button type="button" class="modal-btn modal-btn-cancel" data-modal-action="cancel">Cancel</button>
+        <button type="button" class="modal-btn modal-btn-danger" data-modal-action="confirm">Trash</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const composeForm = document.getElementById('composeForm');
     const composeInput = document.getElementById('composeInput');
@@ -55,6 +94,9 @@
 
     // Make sure request.user.username is available in the template context for this script
     const currentUsername = "{{ request.user.username }}";
+    // The friend's first name, for the "<name> trashed this message" tombstone
+    // shown when the other participant trashes one of their own messages.
+    const friendFirstName = "{{ first_name|escapejs }}";
 
     // Grow the textarea with its content up to the CSS max-height, then reset
     // it to a single row once the message has been sent.
@@ -87,24 +129,201 @@
     // Builds a message bubble using textContent so message bodies are never
     // parsed as HTML. Do not switch this back to innerHTML: message text is
     // attacker-controlled and would execute in the recipient's browser.
-    function appendMessage(text, time, side) {
+    // messageId may be empty for an optimistic bubble; it is filled in once the
+    // server echo arrives, which is what makes the actions menu available.
+    function appendMessage(text, time, side, messageId) {
       const msgDiv = document.createElement('div');
       msgDiv.className = 'message ' + side;
+      if (messageId) msgDiv.dataset.messageId = messageId;
 
       const bodyDiv = document.createElement('div');
       bodyDiv.className = 'message-text';
       bodyDiv.textContent = text;
+      msgDiv.appendChild(bodyDiv);
 
       const timeDiv = document.createElement('div');
       timeDiv.className = 'timestamp ' + (side === 'right' ? 'right_time' : 'left_time');
       timeDiv.textContent = time;
 
-      msgDiv.appendChild(bodyDiv);
       msgDiv.appendChild(timeDiv);
       messageList.insertBefore(msgDiv, scrollAnchor);
       scrollToLastMessage();
       return msgDiv;
     }
+
+    // Turns a live bubble into a tombstone in place. Called for both ends when a
+    // trash is broadcast; the wording depends on who trashed the message.
+    function applyTrash(messageId, senderUsername) {
+      const bubble = messageList.querySelector('[data-message-id="' + (window.CSS && CSS.escape ? CSS.escape(messageId) : messageId) + '"]');
+      if (!bubble) return;
+
+      const body = bubble.querySelector('.message-text');
+      if (body) {
+        body.textContent = senderUsername === currentUsername
+          ? 'You trashed this message'
+          : friendFirstName + ' trashed this message';
+        body.classList.add('trashed');
+      }
+    }
+
+    // --- Actions menu and trash confirmation ---
+    // Only the sender can trash or edit, so the menu opens on own (right)
+    // bubbles that still carry a body and an id (not optimistic, not a tombstone).
+    const menuBackdrop = document.getElementById('menuBackdrop');
+    const messageMenu = document.getElementById('messageMenu');
+    const trashModal = document.getElementById('trashModal');
+    // The message the menu and modal currently act on.
+    let activeMessageId = '';
+    // The bubble currently lifted above the dim, so it can be lowered again.
+    let selectedBubble = null;
+    // When the menu was opened, so the synthetic click that a long-press emits
+    // on finger release does not immediately dismiss it.
+    let menuOpenedAt = 0;
+
+    function eligibleBubble(target) {
+      const bubble = target.closest ? target.closest('.message.right') : null;
+      if (!bubble || !bubble.dataset.messageId) return null;
+      if (bubble.querySelector('.message-text.trashed')) return null;
+      return bubble;
+    }
+
+    // Lifts one bubble above the dim (slid left, with a highlight ribbon) so it
+    // is clear which message the menu and confirmation act on.
+    function selectBubble(bubble) {
+      if (selectedBubble && selectedBubble !== bubble) selectedBubble.classList.remove('selected');
+      selectedBubble = bubble;
+      bubble.classList.add('selected');
+    }
+
+    function deselectBubble() {
+      if (selectedBubble) selectedBubble.classList.remove('selected');
+      selectedBubble = null;
+    }
+
+    function showMenu() {
+      menuBackdrop.hidden = false;
+      messageMenu.hidden = false;
+      messageMenu.setAttribute('aria-hidden', 'false');
+    }
+
+    // Hides the menu layers without lowering the bubble, for the hand-off to the
+    // confirmation dialog, which keeps the same message selected.
+    function hideMenu() {
+      menuBackdrop.hidden = true;
+      messageMenu.hidden = true;
+      messageMenu.setAttribute('aria-hidden', 'true');
+    }
+
+    // The menu is centred over a backdrop, so it needs only the target bubble.
+    function openMenu(bubble) {
+      activeMessageId = bubble.dataset.messageId;
+      menuOpenedAt = Date.now();
+      selectBubble(bubble);
+      showMenu();
+    }
+
+    function closeMenu() {
+      hideMenu();
+      deselectBubble();
+    }
+
+    function openTrashModal() {
+      trashModal.hidden = false;
+      trashModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeTrashModal() {
+      trashModal.hidden = true;
+      trashModal.setAttribute('aria-hidden', 'true');
+      deselectBubble();
+    }
+
+    function requestTrash(messageId) {
+      if (!messageId) return;
+      if (chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({ 'action': 'trash', 'message_id': messageId }));
+      } else {
+        alert('Connection error. Message not trashed. Please try again.');
+      }
+    }
+
+    // Desktop: right-click an own message.
+    messageList.addEventListener('contextmenu', function (e) {
+      const bubble = eligibleBubble(e.target);
+      if (!bubble) return;  // Fall through to the native menu elsewhere.
+      e.preventDefault();
+      openMenu(bubble);
+    });
+
+    // Mobile: press and hold an own message. A move or an early release cancels
+    // it, so scrolling the history never trips the menu.
+    let longPressTimer = null;
+    let longPressBubble = null;
+    function cancelLongPress() {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      longPressBubble = null;
+    }
+    messageList.addEventListener('touchstart', function (e) {
+      const bubble = eligibleBubble(e.target);
+      if (!bubble || e.touches.length !== 1) return;
+      longPressBubble = bubble;
+      longPressTimer = setTimeout(function () {
+        longPressTimer = null;
+        if (longPressBubble === bubble) {
+          openMenu(bubble);
+        }
+      }, 500);
+    }, { passive: true });
+    messageList.addEventListener('touchmove', cancelLongPress, { passive: true });
+    messageList.addEventListener('touchend', cancelLongPress);
+    messageList.addEventListener('touchcancel', cancelLongPress);
+
+    // Tapping the dim backdrop dismisses the menu. Guard against the synthetic
+    // click a long-press emits on finger release.
+    menuBackdrop.addEventListener('click', function () {
+      if (Date.now() - menuOpenedAt < 400) return;
+      closeMenu();
+    });
+
+    // Menu item chosen.
+    messageMenu.addEventListener('click', function (e) {
+      const item = e.target.closest('.context-menu-item');
+      if (!item) return;
+      const action = item.dataset.action;
+      if (action === 'trash') {
+        // Keep the bubble selected through the confirmation step.
+        hideMenu();
+        openTrashModal();
+      } else {
+        // 'edit' is a placeholder for now and just closes the menu.
+        closeMenu();
+      }
+    });
+
+    // Confirmation dialog buttons.
+    trashModal.addEventListener('click', function (e) {
+      // A click on the backdrop (outside the dialog) cancels.
+      if (e.target === trashModal) {
+        closeTrashModal();
+        return;
+      }
+      const btn = e.target.closest('[data-modal-action]');
+      if (!btn) return;
+      if (btn.dataset.modalAction === 'confirm') {
+        requestTrash(activeMessageId);
+      }
+      closeTrashModal();
+    });
+
+    // Escape closes whichever is open.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (!messageMenu.hidden) closeMenu();
+      if (!trashModal.hidden) closeTrashModal();
+    });
 
     window.addEventListener('DOMContentLoaded', scrollToLastMessage);
     window.addEventListener('load', scrollToLastMessage); // Fallback for images/content loading later
@@ -132,24 +351,35 @@
             return;
         }
 
+        // A trash broadcast turns the named message into a tombstone on both ends.
+        if (data.action === 'trashed') {
+            applyTrash(data.message_id, data.sender_username);
+            return;
+        }
+
         const message = data.message;
         const senderUsername = data.sender_username;
         const formattedTime = data.formatted_time;
+        const messageId = data.message_id;
 
         // Only append if the message is from the OTHER user.
         // The sender's own message is already added optimistically.
         if (senderUsername !== currentUsername) {
             // Messages received are from the other person, so they are 'left'
-            appendMessage(message, formattedTime, 'left');
+            appendMessage(message, formattedTime, 'left', messageId);
         } else {
             // Echo of this client's own message. The bubble is already on
             // screen with a locally computed time; replace it with the
             // server's, which is what both participants and the reloaded
-            // history will show.
+            // history will show. It also gains its id now, which is what makes
+            // the actions menu available on it.
             const bubble = pendingBubbles.shift();
             if (bubble) {
                 const stamp = bubble.querySelector('.timestamp');
                 if (stamp) stamp.textContent = formattedTime;
+                if (messageId && !bubble.dataset.messageId) {
+                    bubble.dataset.messageId = messageId;
+                }
             }
         }
     };

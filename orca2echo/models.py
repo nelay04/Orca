@@ -145,11 +145,18 @@ class Friendship(models.Model):
 
 
 class Message(models.Model):
+    # What travels to the client to name a single message, in the same spirit as
+    # Friendship.public_id: a random UUID leaks no sequential id and no count.
+    # The trash action references a message by this rather than by primary key.
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
     friendship = models.ForeignKey(Friendship, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_messages")
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_messages")
 
     message = models.TextField()
+    # False once the sender trashes the message. The row is kept so history
+    # renders a tombstone in its place; the body is never shown again.
     is_active = models.BooleanField(default=True)
     # Server-generated. The browser used to supply this as a formatted string,
     # so clock skew or a crafted WebSocket frame could reorder history.
