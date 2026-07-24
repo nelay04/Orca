@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import FriendRequest, Friendship, Message, Otp, Profile
+from .models import FriendRequest, Friendship, Message, MessageHistory, Otp, Profile
 
 
 @admin.register(Otp)
@@ -40,9 +40,17 @@ class FriendshipAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ("sender", "receiver", "message", "is_active", "created_at")
+    list_display = ("sender", "receiver", "message", "is_active", "edited_at", "created_at")
     list_filter = ("is_active",)
     search_fields = ("sender__username", "receiver__username", "message")
     raw_id_fields = ("friendship", "sender", "receiver")
+    readonly_fields = ("created_at",)
+    date_hierarchy = "created_at"
+
+
+@admin.register(MessageHistory)
+class MessageHistoryAdmin(admin.ModelAdmin):
+    list_display = ("message", "created_at")
+    raw_id_fields = ("message",)
     readonly_fields = ("created_at",)
     date_hierarchy = "created_at"

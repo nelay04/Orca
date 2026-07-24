@@ -60,6 +60,24 @@ def trash_message(user, conversation_id, message_public_id):
     return trash(friendship, user, message_public_id)
 
 
+@sync_to_async
+def edit_message(user, conversation_id, message_public_id, new_text):
+    """Edit the user's own message, or return None when not permitted.
+
+    Membership is resolved from the database on every frame, exactly as for a
+    write or a trash: holding the conversation token is not membership, and
+    being a member is not permission to edit the other participant's message.
+    """
+    from .services.data_service import resolve_friendship, edit_message as edit
+
+    resolved = resolve_friendship(conversation_id, user)
+    if resolved is None:
+        return None
+
+    friendship, _ = resolved
+    return edit(friendship, user, message_public_id, new_text)
+
+
 def format_display_time(moment):
     """The h:mm am/pm label shown next to a bubble, in the project timezone."""
     local = timezone.localtime(moment)
@@ -104,6 +122,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # instead of a body; a send frame carries the body and the recipient.
         if data.get('action') == 'trash':
             await self.trash(data)
+            return
+
+        # An edit frame carries the target's public_id and the replacement body.
+        if data.get('action') == 'edit':
+            await self.edit(data)
             return
 
         message = data.get('message')
@@ -164,6 +187,33 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
+    async def edit(self, data):
+        """Handle an edit frame: rewrite the body, then broadcast the new text."""
+        message_id = data.get('message_id')
+        new_text = data.get('message')
+        if not message_id or not new_text:
+            return
+
+        edited = await edit_message(self.user, self.conversation_id, message_id, new_text)
+        if edited is None:
+            logger.error(f"Refused edit from {self.user.username} for message {message_id}")
+            await self.send(text_data=json.dumps({
+                'error': 'Message could not be edited.'
+            }))
+            return
+
+        # Relay the plaintext already in memory over the TLS-protected socket,
+        # as the live send path does; the stored body is encrypted at rest.
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'message_edited',  # Calls message_edited below.
+                'message_id': str(edited.public_id),
+                'message': new_text,
+                'sender_username': self.user.username,
+            }
+        )
+
     # Receive message from room group and send to WebSocket client
     async def chat_message(self, event):
         # Send message to WebSocket (to the specific client this consumer instance represents)
@@ -179,5 +229,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'action': 'trashed',
             'message_id': event['message_id'],
+            'sender_username': event['sender_username'],
+        }))
+
+    # Relay an edit so this client rewrites the bubble and shows the Edited tag.
+    async def message_edited(self, event):
+        await self.send(text_data=json.dumps({
+            'action': 'edited',
+            'message_id': event['message_id'],
+            'message': event['message'],
             'sender_username': event['sender_username'],
         }))

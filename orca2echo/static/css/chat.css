@@ -103,6 +103,18 @@
     opacity: 0.7;
 }
 
+/* An edited message shows an "Edited" marker beside its time, so the reserved
+   space for the absolutely positioned timestamp has to widen to clear it. */
+.message.edited .message-text {
+    padding-right: 6.4rem;
+}
+
+.edited-tag {
+    font-style: italic;
+    opacity: 0.85;
+    margin-right: 0.35rem;
+}
+
 /* Own messages open the actions menu on long-press, so suppress the native
    iOS callout and text selection that a long-press would otherwise trigger. */
 .message.right {
@@ -355,6 +367,36 @@
     margin-bottom: 1.35rem;
 }
 
+/* The editable field in the edit dialog, styled to match the composer input.
+   It grows with its content up to a cap set in JS, then scrolls silently (the
+   scrollbar is hidden) rather than showing a fixed box with a scrollbar. */
+.modal-input {
+    display: block;
+    width: 100%;
+    margin-bottom: 1.35rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--underscore-color);
+    border-radius: 12px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    overflow-y: auto;
+    scrollbar-width: none;
+    transition: border-color 0.2s ease;
+}
+
+.modal-input::-webkit-scrollbar {
+    display: none;
+}
+
+.modal-input:focus {
+    border-color: var(--send-accent);
+}
+
 .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -387,4 +429,13 @@
 
 .modal-btn-danger:hover {
     filter: brightness(1.08);
+}
+
+.modal-btn-primary {
+    background: var(--send-accent);
+    color: #fff;
+}
+
+.modal-btn-primary:hover {
+    filter: brightness(1.1);
 }

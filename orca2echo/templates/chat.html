@@ -22,7 +22,7 @@
           right
         {% else %}
           left
-        {% endif %}" data-message-id="{{ msg.public_id }}">
+        {% endif %}{% if msg.is_active and msg.edited_at %} edited{% endif %}" data-message-id="{{ msg.public_id }}">
           {% if msg.is_active %}
             <div class="message-text">{{ msg.message }}</div>
           {% else %}
@@ -33,7 +33,7 @@
             right_time
           {% else %}
             left_time
-          {% endif %}">{{ msg.created_at|date:'g:i A'|lower }}</div>
+          {% endif %}">{% if msg.is_active and msg.edited_at %}<span class="edited-tag">Edited</span> {% endif %}{{ msg.created_at|date:'g:i A'|lower }}</div>
         </div>
       {% endfor %}
       <div id="scroll-anchor"></div>
@@ -80,6 +80,18 @@
       <div class="modal-actions">
         <button type="button" class="modal-btn modal-btn-cancel" data-modal-action="cancel">Cancel</button>
         <button type="button" class="modal-btn modal-btn-danger" data-modal-action="confirm">Trash</button>
+      </div>
+    </div>
+  </div>
+
+  {# Edit dialog. Same shell as the trash confirmation, with the message's current text preloaded into an editable field. #}
+  <div class="modal-overlay" id="editModal" aria-hidden="true" hidden>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <h3 class="modal-title" id="editModalTitle">Edit message</h3>
+      <textarea class="modal-input" id="editInput" rows="3" aria-label="Edit message"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="modal-btn modal-btn-cancel" data-modal-action="cancel">Cancel</button>
+        <button type="button" class="modal-btn modal-btn-primary" data-modal-action="confirm">Save</button>
       </div>
     </div>
   </div>
@@ -166,12 +178,36 @@
       }
     }
 
+    // Rewrites a bubble's body in place with the edited text and marks it
+    // "Edited". Called for both ends when an edit is broadcast. A trashed
+    // bubble is never re-editable, so it is left alone.
+    function applyEdit(messageId, message) {
+      const bubble = messageList.querySelector('[data-message-id="' + (window.CSS && CSS.escape ? CSS.escape(messageId) : messageId) + '"]');
+      if (!bubble) return;
+
+      const body = bubble.querySelector('.message-text');
+      if (!body || body.classList.contains('trashed')) return;
+      body.textContent = message;
+
+      bubble.classList.add('edited');
+      const stamp = bubble.querySelector('.timestamp');
+      if (stamp && !stamp.querySelector('.edited-tag')) {
+        const tag = document.createElement('span');
+        tag.className = 'edited-tag';
+        tag.textContent = 'Edited';
+        stamp.insertBefore(document.createTextNode(' '), stamp.firstChild);
+        stamp.insertBefore(tag, stamp.firstChild);
+      }
+    }
+
     // --- Actions menu and trash confirmation ---
     // Only the sender can trash or edit, so the menu opens on own (right)
     // bubbles that still carry a body and an id (not optimistic, not a tombstone).
     const menuBackdrop = document.getElementById('menuBackdrop');
     const messageMenu = document.getElementById('messageMenu');
     const trashModal = document.getElementById('trashModal');
+    const editModal = document.getElementById('editModal');
+    const editInput = document.getElementById('editInput');
     // The message the menu and modal currently act on.
     let activeMessageId = '';
     // The bubble currently lifted above the dim, so it can be lowered again.
@@ -247,6 +283,43 @@
       }
     }
 
+    // Grows the edit field with its content up to a cap, so a long message
+    // fills the field instead of scrolling inside a fixed box.
+    function autoResizeEdit() {
+      editInput.style.height = 'auto';
+      editInput.style.height = Math.min(editInput.scrollHeight, 240) + 'px';
+    }
+    editInput.addEventListener('input', autoResizeEdit);
+
+    // Opens the edit dialog with the selected message's current text preloaded
+    // and the cursor at the end. The bubble stays selected behind it.
+    function openEditModal() {
+      const body = selectedBubble ? selectedBubble.querySelector('.message-text') : null;
+      editInput.value = body ? body.textContent : '';
+      editModal.hidden = false;
+      editModal.setAttribute('aria-hidden', 'false');
+      // Size to the preloaded text before focusing so it opens at its full height.
+      autoResizeEdit();
+      editInput.focus();
+      editInput.setSelectionRange(editInput.value.length, editInput.value.length);
+    }
+
+    function closeEditModal() {
+      editModal.hidden = true;
+      editModal.setAttribute('aria-hidden', 'true');
+      deselectBubble();
+    }
+
+    function requestEdit(messageId, text) {
+      const trimmed = text.trim();
+      if (!messageId || !trimmed) return;
+      if (chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({ 'action': 'edit', 'message_id': messageId, 'message': trimmed }));
+      } else {
+        alert('Connection error. Message not edited. Please try again.');
+      }
+    }
+
     // Desktop: right-click an own message.
     messageList.addEventListener('contextmenu', function (e) {
       const bubble = eligibleBubble(e.target);
@@ -297,8 +370,11 @@
         // Keep the bubble selected through the confirmation step.
         hideMenu();
         openTrashModal();
+      } else if (action === 'edit') {
+        // Keep the bubble selected while its text is edited.
+        hideMenu();
+        openEditModal();
       } else {
-        // 'edit' is a placeholder for now and just closes the menu.
         closeMenu();
       }
     });
@@ -318,11 +394,39 @@
       closeTrashModal();
     });
 
+    // Edit dialog buttons.
+    editModal.addEventListener('click', function (e) {
+      // A click on the backdrop (outside the dialog) cancels.
+      if (e.target === editModal) {
+        closeEditModal();
+        return;
+      }
+      const btn = e.target.closest('[data-modal-action]');
+      if (!btn) return;
+      if (btn.dataset.modalAction === 'confirm') {
+        // An empty body would clear the message; keep the dialog open instead.
+        if (!editInput.value.trim()) return;
+        requestEdit(activeMessageId, editInput.value);
+      }
+      closeEditModal();
+    });
+
+    // Enter saves the edit; Shift+Enter inserts a newline, matching the composer.
+    editInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!editInput.value.trim()) return;
+        requestEdit(activeMessageId, editInput.value);
+        closeEditModal();
+      }
+    });
+
     // Escape closes whichever is open.
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
       if (!messageMenu.hidden) closeMenu();
       if (!trashModal.hidden) closeTrashModal();
+      if (!editModal.hidden) closeEditModal();
     });
 
     window.addEventListener('DOMContentLoaded', scrollToLastMessage);
@@ -354,6 +458,12 @@
         // A trash broadcast turns the named message into a tombstone on both ends.
         if (data.action === 'trashed') {
             applyTrash(data.message_id, data.sender_username);
+            return;
+        }
+
+        // An edit broadcast rewrites the named message's body on both ends.
+        if (data.action === 'edited') {
+            applyEdit(data.message_id, data.message);
             return;
         }
 

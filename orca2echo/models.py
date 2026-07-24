@@ -158,6 +158,10 @@ class Message(models.Model):
     # False once the sender trashes the message. The row is kept so history
     # renders a tombstone in its place; the body is never shown again.
     is_active = models.BooleanField(default=True)
+    # Set the first time the sender edits the message. Non-null drives the
+    # "Edited" tag; the ordering stays on created_at so an edit never moves the
+    # message. Each edit also appends the prior body to MessageHistory.
+    edited_at = models.DateTimeField(null=True, blank=True)
     # Server-generated. The browser used to supply this as a formatted string,
     # so clock skew or a crafted WebSocket frame could reorder history.
     created_at = models.DateTimeField(auto_now_add=True)
@@ -170,3 +174,26 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.sender.username}: {self.message[:40]}"
+
+
+class MessageHistory(models.Model):
+    """A superseded version of a message body, kept when the sender edits it.
+
+    Before a Message row's body is overwritten by an edit, its current
+    (Fernet-encrypted) body is copied here with the time it was replaced. The
+    live Message row therefore holds only the latest text, while the full trail
+    of prior versions survives here. Rows are never edited or shown to the other
+    participant; they exist so nothing a user typed is silently lost.
+    """
+
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="history")
+    # The prior body, stored encrypted exactly as it was on the Message row.
+    previous_message = models.TextField()
+    # When this version was superseded (i.e. when the edit that replaced it ran).
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"history of message {self.message_id} at {self.created_at}"

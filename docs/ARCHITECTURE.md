@@ -95,7 +95,8 @@ of them is registered in the admin.
 | `Profile` | `user` (one-to-one), `full_name`, `short_name`, `search_id`, `gender`, `dob`, `about`, `profile_picture`, `qr_code`, `is_new_user` | Everything about a user beyond their auth row. `search_id` is unique; `(short_name, search_id)` is indexed for the share-link lookup. The picture is a base64 string stored inline. |
 | `FriendRequest` | `sender`, `receiver`, `is_active`, `is_accepted`, `is_declined`, `is_cancelled`, counters | One row per direction, unique on the pair. |
 | `Friendship` | `public_id`, `user_1`, `user_2` | Created once a request is accepted. Also the conversation. |
-| `Message` | `public_id`, `friendship`, `sender`, `receiver`, `message`, `is_active`, `created_at` | One row per message, indexed on `(friendship, created_at)` and ordered by `created_at`. `message` is stored Fernet-encrypted (at rest) and decrypted on read. `public_id` is a random UUID the client uses to name a message, so no sequential id leaves the server. Trashing sets `is_active` to false rather than deleting the row, so history keeps the message's position and renders a tombstone. |
+| `Message` | `public_id`, `friendship`, `sender`, `receiver`, `message`, `is_active`, `edited_at`, `created_at` | One row per message, indexed on `(friendship, created_at)` and ordered by `created_at`. `message` is stored Fernet-encrypted (at rest) and decrypted on read. `public_id` is a random UUID the client uses to name a message, so no sequential id leaves the server. Trashing sets `is_active` to false rather than deleting the row, so history keeps the message's position and renders a tombstone. Editing overwrites `message` in place and stamps `edited_at` (which drives the "Edited" tag); `created_at` is untouched, so an edit never reorders history. |
+| `MessageHistory` | `message`, `previous_message`, `created_at` | One row per superseded version of a message. Before an edit overwrites a `Message` body, its current (encrypted) body is copied here with the time it was replaced, so no prior version is lost. Never shown to the other participant. |
 
 There is no separate email or username column on `Profile`: `user.email` and
 `user.username` are the only copy of each.
@@ -206,6 +207,14 @@ sequential id. The row's `is_active` is flipped rather than deleted, and a
 `{"action": "trashed", ...}` broadcast turns the bubble into a tombstone on both
 ends. Trashing is one-way; there is no untrash.
 
+An edit frame (`{"action": "edit", "message_id": <public_id>, "message": <new
+body>}`) rewrites a message. It is scoped exactly like a trash: the friendship is
+re-resolved from the connection's `public_id`, and only a message the sender owns
+within that friendship is edited. The prior body is copied to `MessageHistory`
+before the `Message` row is overwritten, `edited_at` is stamped, and an
+`{"action": "edited", ...}` broadcast rewrites the bubble and shows an "Edited"
+tag on both ends. `created_at` is left alone, so the message keeps its place.
+
 The sender's own message is rendered optimistically in the browser with a
 provisional local time. When the echo of that message arrives, the client
 replaces the timestamp with the server's, so both participants and the reloaded
@@ -265,7 +274,7 @@ orca2echo/                  The application
 ├── views.py                HTTP handlers, IP rate limiting
 ├── consumers.py            WebSocket chat consumer
 ├── routing.py              WebSocket URL patterns
-├── models.py               Otp, Profile, FriendRequest, Friendship, Message
+├── models.py               Otp, Profile, FriendRequest, Friendship, Message, MessageHistory
 ├── forms.py                Signin and signup validation
 ├── tests.py                Auth, authorization, friendship and form tests
 ├── admin.py                Django admin registration for every model

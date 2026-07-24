@@ -10,8 +10,9 @@ from typing import List, Optional, Tuple
 from django.contrib.auth.models import User  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
 from django.db.models import OuterRef, Q, Subquery  # type: ignore
+from django.utils import timezone  # type: ignore
 
-from ..models import FriendRequest, Friendship, Message, Profile
+from ..models import FriendRequest, Friendship, Message, MessageHistory, Profile
 
 
 def get_profile(username: str) -> Optional[Profile]:
@@ -213,4 +214,42 @@ def trash_message(friendship: Friendship, user: User, public_id: str) -> Optiona
 
     message.is_active = False
     message.save(update_fields=["is_active"])
+    return message
+
+
+def edit_message(friendship: Friendship, user: User, public_id: str, new_text: str) -> Optional[Message]:
+    """Replace the body of one of the user's own messages, or return None.
+
+    Scoped exactly like trash_message: only within a friendship the caller
+    belongs to, and only a message the caller sent. Before the row is
+    overwritten, its current (encrypted) body is copied to MessageHistory with
+    the time it was superseded, so no prior version is lost. The new body is
+    encrypted at rest like any other, edited_at is stamped to drive the
+    "Edited" tag, and created_at is left untouched so the edit never reorders
+    history. An empty new body is rejected rather than clearing the message.
+    """
+    from .auth_service import encrypt_message
+
+    if not public_id:
+        return None
+    new_text = (new_text or "").strip()
+    if not new_text:
+        return None
+    try:
+        message = (
+            friendship.messages.filter(public_id=public_id, sender=user, is_active=True)
+            .select_related("sender")
+            .first()
+        )
+    except (ValidationError, ValueError, TypeError):
+        # Not a UUID. A tampered or stale reference, not an error worth raising.
+        return None
+
+    if message is None:
+        return None
+
+    MessageHistory.objects.create(message=message, previous_message=message.message)
+    message.message = encrypt_message(new_text)
+    message.edited_at = timezone.now()
+    message.save(update_fields=["message", "edited_at"])
     return message
